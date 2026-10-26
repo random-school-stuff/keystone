@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Keystone &middot; Not found</title>
+		<meta name="robots" content="noindex, nofollow" />
+		<meta name="theme-color" content="#07080d" />
+		<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/styles.css" />
+		<style>
+			.empty {
+				flex: 1 1 auto;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				text-align: center;
+				padding: 60px 0;
+			}
+			.empty .code {
+				font-size: clamp(3rem, 9vw, 5rem);
+				font-weight: 700;
+				letter-spacing: -0.05em;
+				background: linear-gradient(115deg, var(--accent), var(--accent-2));
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+				margin: 0;
+			}
+			.empty h1 {
+				margin: 8px 0 10px;
+				font-size: 1.3rem;
+				letter-spacing: -0.02em;
+			}
+			.empty p {
+				max-width: 34rem;
+				margin: 0 0 26px;
+				color: var(--text-dim);
+				line-height: 1.6;
+			}
+			.empty a.button {
+				padding: 12px 22px;
+				border-radius: 12px;
+				background: linear-gradient(135deg, var(--accent), var(--accent-2));
+				color: #080a12;
+				font-weight: 650;
+				font-size: 0.9rem;
+				text-decoration: none;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="backdrop" aria-hidden="true">
+			<div class="orb orb-one"></div>
+			<div class="orb orb-two"></div>
+		</div>
+
+		<div class="shell">
+			<header class="topbar">
+				<a class="brand" href="/">
+					<img class="brand-mark" src="/logo.svg" alt="" width="32" height="32" />
+					<span class="brand-name">Keystone</span>
+				</a>
+			</header>
+
+			<main class="empty">
+				<p class="code">404</p>
+				<h1>That page is not here</h1>
+				<p>
+					The address does not match anything Keystone serves. Head back to the
+					start and enter the site you were looking for.
+				</p>
+				<a class="button" href="/">Back to Keystone</a>
+			</main>
+
+			<footer class="footer">
+				<div class="footer-links">
+					<a href="/credits.html">Credits &amp; licenses</a>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>

@@ -1,0 +1,28 @@
+{
+	"name": "keystone",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Keystone - a clean, self-hosted web proxy built on Ultraviolet and Wisp",
+	"type": "module",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"start": "node src/index.js",
+		"dev": "node src/index.js"
+	},
+	"keywords": [
+		"proxy",
+		"ultraviolet",
+		"wisp"
+	],
+	"license": "AGPL-3.0-or-later",
+	"dependencies": {
+		"@mercuryworkshop/bare-mux": "^2.1.9",
+		"@mercuryworkshop/epoxy-transport": "2.1.29",
+		"@mercuryworkshop/wisp-js": "0.5.1",
+		"@titaniumnetwork-dev/ultraviolet": "^3.2.10",
+		"express": "^5.2.1"
+	}
+}

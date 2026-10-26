@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Keystone &middot; Credits</title>
+		<meta name="robots" content="noindex, nofollow" />
+		<meta name="theme-color" content="#07080d" />
+		<link rel="icon" href="/logo.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/styles.css" />
+		<style>
+			.doc {
+				flex: 1 1 auto;
+				width: min(760px, 100%);
+				margin: 0 auto;
+				padding: 24px 0 60px;
+			}
+			.doc h1 {
+				font-size: clamp(1.8rem, 4vw, 2.4rem);
+				letter-spacing: -0.03em;
+				margin: 0 0 8px;
+			}
+			.doc > p {
+				color: var(--text-dim);
+				line-height: 1.65;
+			}
+			.doc section {
+				margin-top: 32px;
+				padding: 22px;
+				border: 1px solid var(--line);
+				border-radius: 16px;
+				background: var(--surface);
+			}
+			.doc h2 {
+				margin: 0 0 6px;
+				font-size: 1.02rem;
+			}
+			.doc section p {
+				margin: 0;
+				color: var(--text-dim);
+				font-size: 0.88rem;
+				line-height: 1.65;
+			}
+			.doc a {
+				color: var(--accent);
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="backdrop" aria-hidden="true">
+			<div class="orb orb-one"></div>
+			<div class="orb orb-two"></div>
+		</div>
+
+		<div class="shell">
+			<header class="topbar">
+				<a class="brand" href="/">
+					<img class="brand-mark" src="/logo.svg" alt="" width="32" height="32" />
+					<span class="brand-name">Keystone</span>
+				</a>
+			</header>
+
+			<main class="doc">
+				<h1>Credits &amp; licenses</h1>
+				<p>
+					Keystone is a thin interface over open source work by other people.
+					Nothing here would exist without them.
+				</p>
+
+				<section>
+					<h2>Ultraviolet</h2>
+					<p>
+						The proxying engine, by Titanium Network. Licensed under the MIT
+						License.
+						<a href="https://github.com/titaniumnetwork-dev/Ultraviolet" target="_blank" rel="noopener noreferrer">Source</a>
+					</p>
+				</section>
+
+				<section>
+					<h2>Epoxy &amp; epoxy-transport</h2>
+					<p>
+						Encrypted transport for bare-mux, by Mercury Workshop. Licensed under
+						the GNU AGPL v3.
+						<a href="https://github.com/MercuryWorkshop/epoxy-tls" target="_blank" rel="noopener noreferrer">epoxy-tls</a> &middot;
+						<a href="https://github.com/MercuryWorkshop/epoxy-transport" target="_blank" rel="noopener noreferrer">epoxy-transport</a>
+					</p>
+				</section>
+
+				<section>
+					<h2>bare-mux</h2>
+					<p>
+						Transport abstraction for browsers, by Mercury Workshop. Licensed
+						under the GNU AGPL v3.
+						<a href="https://github.com/MercuryWorkshop/bare-mux" target="_blank" rel="noopener noreferrer">Source</a>
+					</p>
+				</section>
+
+				<section>
+					<h2>Wisp</h2>
+					<p>
+						The WebSocket proxying protocol and its JavaScript server, by Mercury
+						Workshop. Licensed under the GNU LGPL v3.
+						<a href="https://github.com/MercuryWorkshop/wisp-protocol" target="_blank" rel="noopener noreferrer">Protocol</a> &middot;
+						<a href="https://github.com/MercuryWorkshop/wisp-js" target="_blank" rel="noopener noreferrer">wisp-js</a>
+					</p>
+				</section>
+
+				<section>
+					<h2>Keystone</h2>
+					<p>
+						The interface, server glue, and deployment setup. Released under the
+						GNU AGPL v3, because it bundles components that carry that license.
+					</p>
+				</section>
+			</main>
+
+			<footer class="footer">
+				<div class="footer-links">
+					<a href="/">Back to Keystone</a>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>

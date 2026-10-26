@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+node_modules
+npm-debug.log
+.env
+.env.*
+*.log
+.qa
+README.md
+docs
+LICENSE

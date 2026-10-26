@@ -1,0 +1,37 @@
+# Optional: run Keystone without Docker.
+#
+#   sudo useradd --system --home /opt/keystone --shell /usr/sbin/nologin keystone
+#   sudo cp -r . /opt/keystone && cd /opt/keystone
+#   sudo -u keystone npm ci && sudo -u keystone npm run build
+#   sudo cp deploy/keystone.service /etc/systemd/system/
+#   sudo systemctl enable --now keystone
+#
+# Then put Caddy or nginx in front of 127.0.0.1:8080 for TLS.
+
+[Unit]
+Description=Keystone web proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=keystone
+Group=keystone
+WorkingDirectory=/opt/keystone
+ExecStart=/usr/bin/node src/index.js
+Environment=NODE_ENV=production
+Environment=PORT=8080
+Environment=HOST=127.0.0.1
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

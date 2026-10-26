@@ -1,0 +1,12 @@
+# Caddy terminates TLS for Keystone and forwards both HTTP and WebSocket
+# traffic to the Node app. Certificates are issued automatically.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	reverse_proxy app:8080
+}
