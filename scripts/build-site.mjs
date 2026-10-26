@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
+import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const docsDir = join(root, "docs");
@@ -48,5 +49,13 @@ await vendor(
 	join(docsDir, "libcurl"),
 	["index.mjs"]
 );
+
+// Scramjet ships one page bundle, a sync worker, and a WebAssembly rewriter.
+// docs/scram/sw.js and docs/keystone/ are hand written and left alone.
+await vendor(scramjetPath, join(docsDir, "scram"), [
+	"scramjet.all.js",
+	"scramjet.sync.js",
+	"scramjet.wasm.wasm",
+]);
 
 console.log("Done. docs/ is ready to publish.");

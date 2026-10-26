@@ -954,6 +954,7 @@
 			}
 
 			#engine-select,
+			#proxy-engine-select,
 			#proxy-select,
 			#transport-select,
 			#wisp-input {
@@ -971,6 +972,7 @@
 			}
 
 			#engine-select,
+			#proxy-engine-select,
 			#proxy-select,
 			#transport-select {
 				padding-right: 38px;
@@ -980,6 +982,7 @@
 			}
 
 			#engine-select:focus,
+			#proxy-engine-select:focus,
 			#proxy-select:focus,
 			#transport-select:focus,
 			#wisp-input:focus {
@@ -1255,6 +1258,7 @@
 
 			#uv-address:focus-visible,
 			#engine-select:focus-visible,
+			#proxy-engine-select:focus-visible,
 			#proxy-select:focus-visible,
 			#transport-select:focus-visible,
 			#wisp-input:focus-visible {
@@ -1352,13 +1356,14 @@
 		</style>
 
 		<!--
-			Ultraviolet engine. These must stay as separate same-origin files:
-			browsers require service workers and worker scripts to be real files.
-			They are deferred, so the app script below waits for DOMContentLoaded.
+			bare-mux must be present before any engine bundle. The engines
+			themselves are loaded on demand by the app script, because each bundle
+			carries its own copy of bare-mux and loading several at once makes them
+			compete for the same BroadcastChannel, which breaks the transport.
+			Engine files must stay real same-origin files: browsers require service
+			workers and worker scripts to be served, not inlined.
 		-->
 		<script src="baremux/index.js" defer></script>
-		<script src="uv/uv.bundle.js" defer></script>
-		<script src="uv/uv.config.js" defer></script>
 	</head>
 
 	<body>
@@ -1648,6 +1653,24 @@
 				<span class="section-label">Proxy</span>
 
 				<div class="field">
+					<label for="proxy-engine-select">Engine</label>
+					<div class="select-wrap">
+						<select id="proxy-engine-select">
+							<option value="scramjet">Scramjet (recommended)</option>
+							<option value="ultraviolet">Ultraviolet (legacy)</option>
+							<option value="keystone">Keystone (built-in, basic)</option>
+						</select>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="m7 10 5 5 5-5" />
+						</svg>
+					</div>
+					<p class="hint" id="engine-hint">
+						The proxy engine that rewrites pages. Scramjet is the successor to
+						Ultraviolet and supports the most sites.
+					</p>
+				</div>
+
+				<div class="field">
 					<label for="proxy-select">Server</label>
 					<div class="select-wrap">
 						<select id="proxy-select">
@@ -1814,11 +1837,33 @@
 
 			var STORAGE = {
 				engine: "keystone.engine",
+				proxyEngine: "keystone.proxyEngine",
 				wisp: "keystone.wisp",
 				transport: "keystone.transport",
 				theme: "keystone.theme",
 			};
 			var DEFAULT_ENGINE = "https://www.google.com/search?q=%s";
+
+			/* Which proxy engine the page drives. Scramjet is the successor to
+			   Ultraviolet; Keystone is the small engine written in this repo. */
+			var DEFAULT_PROXY_ENGINE = "scramjet";
+			var PROXY_ENGINES = {
+				scramjet: {
+					label: "Scramjet",
+					sw: "scram/sw.js",
+					hint: "Scramjet is the successor to Ultraviolet. It supports the most sites, including ones that use CAPTCHAs.",
+				},
+				ultraviolet: {
+					label: "Ultraviolet",
+					sw: "uv/sw.js",
+					hint: "Ultraviolet is no longer maintained upstream. It still works, but Scramjet handles more sites.",
+				},
+				keystone: {
+					label: "Keystone",
+					sw: "keystone/sw.js",
+					hint: "Keystone is the engine built into this site. It handles static pages only; use Scramjet for anything that relies on JavaScript.",
+				},
+			};
 
 			function init() {
 				var $ = function (sel) {
@@ -1845,6 +1890,8 @@
 				var settingsSave = $("#settings-save");
 				var settingsReset = $("#settings-reset");
 				var engineSelect = $("#engine-select");
+				var proxyEngineSelect = $("#proxy-engine-select");
+				var engineHint = $("#engine-hint");
 				var proxySelect = $("#proxy-select");
 				var transportSelect = $("#transport-select");
 				var wispInput = $("#wisp-input");
@@ -1866,6 +1913,7 @@
 
 				var activeWisp = null;
 				var activeTransport = null;
+				var activeEngine = null;
 				var lastFocused = null;
 
 				/* -------------------------------------------------------------
@@ -1942,6 +1990,180 @@
 					option.value = "local";
 					option.textContent = "This site's own server";
 					proxySelect.insertBefore(option, custom);
+				}
+
+				/* -------------------------------------------------------------
+				   Proxy engine
+				   ------------------------------------------------------------- */
+
+				/* Each engine bundle is loaded only when that engine is selected.
+				   Two reasons, both learned the hard way:
+				     1. Every bundle embeds its own bare-mux. Several copies on one
+				        page fight over the same BroadcastChannel and the service
+				        worker intermittently reports "there are no bare clients".
+				     2. They are large. Ultraviolet's bundle and Scramjet's bundle
+				        together are well over a megabyte that most visits never use.
+				   Scripts are injected in order and awaited, so dependencies such
+				   as uv.config.js still run after uv.bundle.js. */
+				var ENGINE_SCRIPTS = {
+					ultraviolet: ["uv/uv.bundle.js", "uv/uv.config.js"],
+					scramjet: ["scram/scramjet.all.js"],
+					keystone: ["keystone/keystone.config.js"],
+				};
+
+				var engineLoaded = {};
+
+				function loadScript(src) {
+					return new Promise(function (resolve, reject) {
+						var script = document.createElement("script");
+						script.src = new URL(src, location.href).href;
+						script.onload = function () {
+							resolve();
+						};
+						script.onerror = function () {
+							reject(new Error("Could not load " + src));
+						};
+						document.head.appendChild(script);
+					});
+				}
+
+				function ensureEngine(engine) {
+					if (engineLoaded[engine]) return engineLoaded[engine];
+
+					var scripts = ENGINE_SCRIPTS[engine] || ENGINE_SCRIPTS[DEFAULT_PROXY_ENGINE];
+
+					engineLoaded[engine] = scripts.reduce(function (chain, src) {
+						return chain.then(function () {
+							return loadScript(src);
+						});
+					}, Promise.resolve());
+
+					// A failed load must not poison the cache, or retrying would
+					// resolve instantly against nothing.
+					engineLoaded[engine] = engineLoaded[engine].catch(function (error) {
+						delete engineLoaded[engine];
+						throw error;
+					});
+
+					return engineLoaded[engine];
+				}
+
+				/** Which engine the page should drive. */
+				function getProxyEngine() {
+					var saved = read(STORAGE.proxyEngine, DEFAULT_PROXY_ENGINE);
+					return PROXY_ENGINES[saved] ? saved : DEFAULT_PROXY_ENGINE;
+				}
+
+				/* Scramjet's controller is built once and reused. Building it is
+				   cheap, but init() writes its config to IndexedDB and must not run
+				   on every launch. */
+				var scramController = null;
+				var scramFrame = null;
+
+				function getScramController() {
+					if (scramController) return Promise.resolve(scramController);
+
+					if (typeof $scramjetLoadController !== "function") {
+						return Promise.reject(
+							new Error(
+								"The Scramjet bundle did not load. Reload the page and try again."
+							)
+						);
+					}
+
+					var ScramjetController = $scramjetLoadController().ScramjetController;
+					var base = new URL("scram/", location.href);
+
+					scramController = new ScramjetController({
+						// Root-relative path: Scramjet matches with
+						// location.origin + prefix, so a full URL would break it.
+						prefix: new URL("scram/service/", location.href).pathname,
+						files: {
+							wasm: base.pathname + "scramjet.wasm.wasm",
+							all: base.pathname + "scramjet.all.js",
+							sync: base.pathname + "scramjet.sync.js",
+						},
+					});
+
+					return Promise.resolve(scramController.init()).then(function () {
+						return scramController;
+					});
+				}
+
+				/** Address of a target under the active engine. */
+				function engineUrl(engine, target) {
+					if (engine === "scramjet") {
+						var path = new URL("scram/service/", location.href).pathname;
+						// Scramjet encodes with its own codec, available once the
+						// controller exists.
+						return scramController
+							? scramController.encodeUrl(target)
+							: path + encodeURIComponent(target);
+					}
+
+					if (engine === "keystone") {
+						if (!self.__keystone$config) {
+							throw new Error("The Keystone engine config did not load.");
+						}
+						return (
+							self.__keystone$config.prefix +
+							self.__keystone$config.encode(target)
+						);
+					}
+
+					if (!self.__uv$config) {
+						throw new Error("The Ultraviolet config did not load.");
+					}
+					return self.__uv$config.prefix + self.__uv$config.encodeUrl(target);
+				}
+
+				/** Decode a proxied URL back to the real address, if it is one. */
+				function decodeEngineUrl(href) {
+					/* Scramjet's decodeUrl does not validate anything: it slices
+					   (location.origin + prefix).length characters off whatever it
+					   is handed. Feeding it an Ultraviolet or Keystone URL
+					   therefore returns non-empty garbage, and because this runs
+					   first it would shadow the other two branches and put that
+					   garbage in the address bar. So only ask Scramjet when the
+					   URL is genuinely under the Scramjet prefix. */
+					var scramPrefix = new URL("scram/service/", location.href).href;
+					if (scramController && href.indexOf(scramPrefix) === 0) {
+						try {
+							var decoded = scramController.decodeUrl(href);
+							if (decoded) return decoded;
+						} catch (e) {
+							/* fall through to the other engines */
+						}
+					}
+
+					try {
+						if (self.__uv$config) {
+							var uvIndex = href.indexOf(self.__uv$config.prefix);
+							if (uvIndex !== -1) {
+								return self.__uv$config.decodeUrl(
+									href.slice(uvIndex + self.__uv$config.prefix.length)
+								);
+							}
+						}
+					} catch (e) {
+						/* not an Ultraviolet URL */
+					}
+
+					try {
+						var cfg = self.__keystone$config;
+						if (cfg) {
+							var kIndex = href.indexOf(cfg.prefix);
+							if (kIndex !== -1) {
+								return cfg.decode(
+									href.slice(kIndex + cfg.prefix.length).split(/[?#]/)[0]
+								);
+							}
+						}
+					} catch (e) {
+						/* not a Keystone URL */
+					}
+
+					return "";
 				}
 
 				function getWispUrl() {
@@ -2147,6 +2369,8 @@
 					engineSelect.value = read(STORAGE.engine, DEFAULT_ENGINE);
 					if (!engineSelect.value) engineSelect.value = DEFAULT_ENGINE;
 
+					proxyEngineSelect.value = getProxyEngine();
+					syncEngineHint();
 					syncProxyFields();
 					wispResult.hidden = true;
 
@@ -2191,6 +2415,14 @@
 					wispInput.dataset.invalid = "false";
 					wispResult.hidden = true;
 				});
+
+				/** Keep the explanation under the Engine dropdown in step with it. */
+				function syncEngineHint() {
+					var spec = PROXY_ENGINES[proxyEngineSelect.value];
+					if (spec && engineHint) engineHint.textContent = spec.hint;
+				}
+
+				proxyEngineSelect.addEventListener("change", syncEngineHint);
 
 				// Typing a custom address switches the dropdown to "Custom".
 				wispInput.addEventListener("input", function () {
@@ -2243,6 +2475,7 @@
 					}
 
 					write(STORAGE.engine, engineSelect.value);
+					write(STORAGE.proxyEngine, proxyEngineSelect.value);
 					// Store the preset as a blank override so DEFAULT_WISP keeps
 					// working if the default ever changes.
 					write(
@@ -2253,6 +2486,8 @@
 					searchEngine.value = engineSelect.value || DEFAULT_ENGINE;
 					activeWisp = null;
 					activeTransport = null;
+					activeEngine = null;
+					scramFrame = null;
 					refreshConn();
 					clearError();
 					closeSettings();
@@ -2260,14 +2495,22 @@
 
 				settingsReset.addEventListener("click", function () {
 					write(STORAGE.engine, "");
+					write(STORAGE.proxyEngine, "");
 					write(STORAGE.wisp, "");
 					write(STORAGE.transport, "");
 					engineSelect.value = DEFAULT_ENGINE;
+					proxyEngineSelect.value = DEFAULT_PROXY_ENGINE;
 					transportSelect.value = "epoxy";
 					searchEngine.value = DEFAULT_ENGINE;
 					activeWisp = null;
 					activeTransport = null;
+					activeEngine = null;
+					scramFrame = null;
 					syncProxyFields();
+					// Reset changes the selected engine, so the hint below the
+					// dropdown has to be refreshed too or it keeps describing the
+					// engine that was just discarded.
+					syncEngineHint();
 					wispResult.hidden = true;
 					refreshConn();
 				});
@@ -2351,34 +2594,42 @@
 				   Service worker
 				   ------------------------------------------------------------- */
 
-				function registerSW() {
+				/* Each engine has its own service worker under its own scope, so
+				   switching engines does not fight the previous one. The worker
+				   controls the iframe, not this page, which is why
+				   controllerchange is not a reliable signal here: wait for the
+				   registration to become active instead. */
+				function registerSW(engine) {
 					if (!navigator.serviceWorker) {
 						return Promise.reject(
 							new Error("This browser does not support service workers.")
 						);
 					}
 
-					var swUrl = new URL("uv/sw.js", location.href).href;
+					var spec = PROXY_ENGINES[engine] || PROXY_ENGINES[DEFAULT_PROXY_ENGINE];
+					var swUrl = new URL(spec.sw, location.href).href;
 
 					return navigator.serviceWorker
 						.register(swUrl)
-						.then(function () {
-							if (navigator.serviceWorker.controller) return;
+						.then(function (registration) {
+							if (registration.active) return registration;
+
+							var worker =
+								registration.installing || registration.waiting;
+							if (!worker) return registration;
 
 							return new Promise(function (resolve) {
 								var settled = false;
 								var done = function () {
 									if (settled) return;
 									settled = true;
-									resolve();
+									resolve(registration);
 								};
 
-								navigator.serviceWorker.addEventListener(
-									"controllerchange",
-									done,
-									{ once: true }
-								);
-								setTimeout(done, 3000);
+								worker.addEventListener("statechange", function () {
+									if (worker.state === "activated") done();
+								});
+								setTimeout(done, 5000);
 							});
 						});
 				}
@@ -2405,6 +2656,9 @@
 					browserLoading.hidden = false;
 					document.body.classList.remove("is-browsing");
 					frame.src = "about:blank";
+					// Scramjet tracks its own frame state, so drop the handle and
+					// let the next launch attach a fresh one.
+					scramFrame = null;
 					address.focus();
 					address.select();
 				}
@@ -2440,13 +2694,30 @@
 
 					var target = resolveInput(input, searchEngine.value);
 					var spec = getTransportSpec(wispUrl);
+					var engine = getProxyEngine();
 
-					registerSW()
+					registerSW(engine)
 						.catch(function (error) {
 							throw {
 								stage: "worker",
 								message:
 									"Keystone could not start a secure session. The page must be served over HTTPS, and your browser needs service worker support.",
+								detail: error,
+							};
+						})
+						.then(function () {
+							return ensureEngine(engine);
+						})
+						.catch(function (error) {
+							// Do not relabel a worker-stage failure that already
+							// carries its own explanation.
+							if (error && error.stage) throw error;
+							throw {
+								stage: "worker",
+								message:
+									"Keystone could not load the " +
+									((PROXY_ENGINES[engine] || {}).label || "") +
+									" engine. Check your connection and try again.",
 								detail: error,
 							};
 						})
@@ -2468,10 +2739,34 @@
 						.then(function () {
 							activeWisp = wispUrl;
 							activeTransport = spec.key;
+							activeEngine = engine;
+
+							// Scramjet drives the frame through its controller rather
+							// than a plain src assignment, because it needs to attach
+							// its client to the frame before navigation.
+							if (engine === "scramjet") {
+								return getScramController().then(function (controller) {
+									if (!scramFrame) {
+										scramFrame = controller.createFrame(frame);
+										scramFrame.addEventListener(
+											"urlchange",
+											function (event) {
+												if (!event || !event.url) return;
+												browserUrl.textContent = event.url;
+												browserUrl.title = event.url;
+											}
+										);
+									}
+									setConn("ok", "Connected");
+									openBrowser(target);
+									scramFrame.go(target);
+								});
+							}
+
 							setConn("ok", "Connected");
 							openBrowser(target);
-							frame.src =
-								__uv$config.prefix + __uv$config.encodeUrl(target);
+							frame.src = engineUrl(engine, target);
+							return undefined;
 						})
 						.catch(function (error) {
 							activeWisp = null;
@@ -2518,6 +2813,10 @@
 
 				$("#browser-reload").addEventListener("click", function () {
 					browserLoading.hidden = false;
+					if (scramFrame && activeEngine === "scramjet") {
+						scramFrame.reload();
+						return;
+					}
 					try {
 						frame.contentWindow.location.reload();
 					} catch (e) {
@@ -2536,11 +2835,7 @@
 
 					try {
 						var href = frame.contentWindow.location.href;
-						var index = href.indexOf(__uv$config.prefix);
-						if (index === -1) return;
-						var decoded = __uv$config.decodeUrl(
-							href.slice(index + __uv$config.prefix.length)
-						);
+						var decoded = decodeEngineUrl(href);
 						if (decoded) {
 							browserUrl.textContent = decoded;
 							browserUrl.title = decoded;
@@ -2589,6 +2884,8 @@
 
 				addLocalPreset();
 				transportSelect.value = getTransport();
+				proxyEngineSelect.value = getProxyEngine();
+				syncEngineHint();
 				syncProxyFields();
 
 				var savedTheme = read(STORAGE.theme, "");
@@ -2603,9 +2900,9 @@
 				refreshConn();
 			}
 
-			/* The engine scripts above are deferred, so they run before
-			   DOMContentLoaded. Waiting for it guarantees BareMux and
-			   __uv$config exist before this code touches them. */
+			/* Only baremux is deferred in the markup; engine bundles are injected
+			   on demand. Waiting for DOMContentLoaded still guarantees BareMux
+			   exists before this code touches it. */
 			if (document.readyState === "loading") {
 				document.addEventListener("DOMContentLoaded", init, { once: true });
 			} else {

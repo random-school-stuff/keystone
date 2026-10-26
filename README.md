@@ -11,7 +11,19 @@ The static site cannot proxy anything by itself. It is a browser page; the netwo
 
 ## What it does
 
-You type a URL or a search query. A service worker in your browser rewrites and fetches the page for you, so the site you visit sees the proxy server's address, not yours. The interface has a search box, a settings drawer (search engine and proxy server), a light/dark theme toggle, and a connection status pill in the top bar.
+You type a URL or a search query. A service worker in your browser rewrites and fetches the page for you, so the site you visit sees the proxy server's address, not yours. The interface has a search box, a settings drawer (proxy engine, proxy server, transport, search engine), a light/dark theme toggle, and a connection status pill in the top bar.
+
+## Proxy engines
+
+Three interchangeable engines are selectable in settings. Each is a separate service worker under its own path, and only the selected one is downloaded.
+
+| Engine | Role | Service worker | Notes |
+|---|---|---|---|
+| **Scramjet** 1.1.0 | Default | `docs/scram/sw.js` | Successor to Ultraviolet, maintained by Mercury Workshop, CAPTCHA support, best site coverage |
+| **Ultraviolet** 3.2.10 | Legacy | `docs/uv/sw.js` | Upstream is deprecated and unmaintained |
+| **Keystone** | Built in | `docs/keystone/sw.js` | Written for this repo. Rewrites HTML and CSS only; no JavaScript emulation |
+
+Keystone is the smallest of the three and the most limited. It handles static pages well and largely does not handle sites that are JavaScript applications. Scramjet is the default for that reason.
 
 ## How a request flows
 
@@ -20,7 +32,7 @@ You type a URL or a search query. A service worker in your browser rewrites and 
      |
      |  1. service worker registration, transport setup
      v
-  Service worker  (Ultraviolet, .../uv/sw.js)
+  Service worker  (the selected engine: scram/, uv/, or keystone/)
      |
      |  2. rewritten request
      v
@@ -35,9 +47,9 @@ You type a URL or a search query. A service worker in your browser rewrites and 
   Target site
 ```
 
-- **Ultraviolet** decodes the proxied URL inside the service worker and rewrites HTML, CSS, and JS so links and assets stay proxied.
+- **The engine** decodes the proxied URL inside the service worker and rewrites HTML, CSS, and (in Scramjet and Ultraviolet) JavaScript so links and assets stay proxied.
 - **bare-mux** is the transport abstraction. The page tells it which transport module to load.
-- **Epoxy** is that transport. It encrypts the stream and speaks the Wisp protocol.
+- **Epoxy** is that transport. It encrypts the stream and speaks the Wisp protocol. Libcurl is available as an alternative.
 - **Wisp** is the server side. It accepts the WebSocket, opens the real connection to the target site, and relays bytes.
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -58,14 +70,16 @@ GitHub Pages serves static files only. It cannot run the proxy backend, so a Pag
 
 The site is `docs/index.html`. Markup, CSS, and client JavaScript all live in that one file.
 
-The engine files next to it (`docs/uv/`, `docs/baremux/`, `docs/epoxy/`) are committed to git and cannot be inlined. Browsers require service workers and worker scripts to be real same-origin files, so they have to sit beside the page as plain assets. `npm run build:site` refreshes them from `node_modules`:
+The engine files next to it (`docs/uv/`, `docs/scram/`, `docs/baremux/`, `docs/epoxy/`, `docs/libcurl/`) are committed to git and cannot be inlined. Browsers require service workers and worker scripts to be real same-origin files, so they have to sit beside the page as plain assets. `npm run build:site` refreshes them from `node_modules`:
 
 ```bash
 npm install
 npm run build:site
 ```
 
-That script copies the Ultraviolet, bare-mux, and Epoxy bundles into `docs/`. It does not touch `docs/uv/uv.config.js`, which is hand written.
+That script copies the Ultraviolet, Scramjet, bare-mux, Epoxy, and Libcurl bundles into `docs/`. It does not touch the hand-written files: `docs/uv/uv.config.js`, `docs/scram/sw.js`, `docs/keystone/`, and `docs/transports/`.
+
+Only `baremux/index.js` is loaded by the page up front. The engine bundles are injected on demand when you pick an engine, because each bundle embeds its own copy of bare-mux and several copies on one page compete for the same `BroadcastChannel`, which breaks the transport.
 
 ### Publishing
 
@@ -162,7 +176,9 @@ Without Docker, `deploy/keystone.service` is a hardened systemd unit that runs t
 | Path | Contents |
 |---|---|
 | `docs/index.html` | The GitHub Pages site. Self-contained. |
-| `docs/uv/`, `docs/baremux/`, `docs/epoxy/` | Committed engine bundles for the Pages site |
+| `docs/uv/`, `docs/scram/`, `docs/baremux/`, `docs/epoxy/`, `docs/libcurl/` | Committed engine and transport bundles for the Pages site |
+| `docs/keystone/` | The built-in Keystone engine: config, service worker, runtime shim |
+| `docs/transports/libcurl.mjs` | Adapter that normalizes the header shape bare-mux passes to libcurl |
 | `public/` | The Node app's page and its generated engine bundles |
 | `src/index.js` | Node server: static files, `/wisp/` upgrade, `/healthz` |
 | `scripts/build.mjs` | Vendors bundles into `public/` |

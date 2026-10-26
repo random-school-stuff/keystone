@@ -2,7 +2,7 @@
 	"name": "keystone",
 	"version": "1.0.0",
 	"private": true,
-	"description": "Keystone - a clean, self-hosted web proxy built on Ultraviolet and Wisp",
+	"description": "Keystone - a self-hosted web proxy with three selectable engines (Scramjet, Ultraviolet, Keystone) and Wisp",
 	"type": "module",
 	"engines": {
 		"node": ">=24.0.0"
@@ -15,6 +15,7 @@
 	},
 	"keywords": [
 		"proxy",
+		"scramjet",
 		"ultraviolet",
 		"wisp"
 	],
@@ -23,6 +24,7 @@
 		"@mercuryworkshop/bare-mux": "^2.1.9",
 		"@mercuryworkshop/epoxy-transport": "2.1.29",
 		"@mercuryworkshop/libcurl-transport": "^2.0.6",
+		"@mercuryworkshop/scramjet": "^1.1.0",
 		"@mercuryworkshop/wisp-js": "0.5.1",
 		"@titaniumnetwork-dev/ultraviolet": "^3.2.10",
 		"express": "^5.2.1"
