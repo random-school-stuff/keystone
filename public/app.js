@@ -222,37 +222,39 @@
 
 		setBusy(true);
 		try {
-			await registerSW();
-		} catch (error) {
-			showError(
-				"Keystone could not start a secure session. The site must be served over HTTPS, and your browser needs service worker support.",
-				error,
-			);
-			return;
-		}
-
-		const target = search(input, searchEngine.value);
-		const wispUrl = getWispUrl();
-
-		try {
-			const current = await connection.getTransport().catch(() => null);
-			if (current !== "/epoxy/index.mjs" || activeWisp !== wispUrl) {
-				await connection.setTransport("/epoxy/index.mjs", [{ wisp: wispUrl }]);
-				activeWisp = wispUrl;
+			try {
+				await registerSW();
+			} catch (error) {
+				showError(
+					"Keystone could not start a secure session. The site must be served over HTTPS, and your browser needs service worker support.",
+					error,
+				);
+				return;
 			}
-		} catch (error) {
-			activeWisp = null;
-			showError(
-				"Keystone could not reach its proxy server. Check that the Wisp endpoint is running and try again.",
-				error,
-			);
-			return;
-		}
 
-		openBrowser(target);
-		frame.src = __uv$config.prefix + __uv$config.encodeUrl(target);
-	} finally {
-		setBusy(false);
+			const target = search(input, searchEngine.value);
+			const wispUrl = getWispUrl();
+
+			try {
+				const current = await connection.getTransport().catch(() => null);
+				if (current !== "/epoxy/index.mjs" || activeWisp !== wispUrl) {
+					await connection.setTransport("/epoxy/index.mjs", [{ wisp: wispUrl }]);
+					activeWisp = wispUrl;
+				}
+			} catch (error) {
+				activeWisp = null;
+				showError(
+					"Keystone could not reach its proxy server. Check that the Wisp endpoint is running and try again.",
+					error,
+				);
+				return;
+			}
+
+			openBrowser(target);
+			frame.src = __uv$config.prefix + __uv$config.encodeUrl(target);
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	form.addEventListener("submit", (event) => {

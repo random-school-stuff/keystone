@@ -593,6 +593,9 @@ html[data-theme="light"] .icon-sun {
 }
 
 .footer-links a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
 	color: var(--text-dim);
 	text-decoration: none;
 	transition: color 0.16s var(--ease);
