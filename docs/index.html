@@ -34,7 +34,10 @@
 				--bg-elev: #0b0d17;
 				--text: #f2f4fb;
 				--text-dim: #98a2b8;
-				--text-faint: #6b768c;
+				/* Muted text is used at 0.72rem bold and as placeholder copy, which
+				   is below the 18.66px bold threshold for "large text", so it needs
+				   a full 4.5:1 against --bg-elev. #6b768c measured 4.24:1. */
+				--text-faint: #7b8699;
 				--line: rgba(255, 255, 255, 0.08);
 				--line-strong: rgba(255, 255, 255, 0.16);
 				--surface: rgba(255, 255, 255, 0.038);
@@ -56,7 +59,8 @@
 				--bg-elev: #ffffff;
 				--text: #0c111d;
 				--text-dim: #57617a;
-				--text-faint: #7b8499;
+				/* #7b8499 measured 3.75:1 on white, below the 4.5:1 AA floor. */
+				--text-faint: #656d80;
 				--line: rgba(12, 17, 29, 0.1);
 				--line-strong: rgba(12, 17, 29, 0.2);
 				--surface: rgba(255, 255, 255, 0.7);
