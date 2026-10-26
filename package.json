@@ -9,6 +9,7 @@
 	},
 	"scripts": {
 		"build": "node scripts/build.mjs",
+		"build:site": "node scripts/build-site.mjs",
 		"start": "node src/index.js",
 		"dev": "node src/index.js"
 	},
