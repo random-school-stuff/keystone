@@ -36,7 +36,17 @@ await vendor(uvPath, join(docsDir, "uv"), [
 
 await vendor(baremuxPath, join(docsDir, "baremux"), ["index.js", "worker.js"]);
 
-// Only the ESM build is used by the page.
+// Only the ESM builds are used by the page. Each transport is optional: the
+// page only loads one when the user picks it in settings.
 await vendor(epoxyPath, join(docsDir, "epoxy"), ["index.mjs"]);
+
+// libcurl bundles its WebAssembly module inside index.mjs, so no separate
+// .wasm file is served. docs/transports/libcurl.mjs is hand written and is not
+// touched by this script.
+await vendor(
+	join(root, "node_modules", "@mercuryworkshop", "libcurl-transport", "dist"),
+	join(docsDir, "libcurl"),
+	["index.mjs"]
+);
 
 console.log("Done. docs/ is ready to publish.");

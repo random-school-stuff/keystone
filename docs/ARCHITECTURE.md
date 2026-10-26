@@ -30,7 +30,8 @@ Both targets use the same engine packages at the same versions. Only the page wr
 | Wisp server | `@mercuryworkshop/wisp-js` 0.5.1 | Server | Accepts WebSocket streams and makes the real outbound connections |
 | Ultraviolet | `@titaniumnetwork-dev/ultraviolet` 3.2.10 | Browser service worker | Rewrites and serves proxied pages |
 | bare-mux | `@mercuryworkshop/bare-mux` 2.1.9 | Browser page + worker | Transport abstraction; loads and switches transport modules |
-| Epoxy | `@mercuryworkshop/epoxy-transport` 2.1.29 | Browser worker | Encrypted transport that speaks Wisp over a WebSocket |
+| Epoxy | `@mercuryworkshop/epoxy-transport` 2.1.29 | Browser worker | Encrypted transport that speaks Wisp over a WebSocket. Default. |
+| Libcurl | `@mercuryworkshop/libcurl-transport` 2.0.6, wrapped by `docs/transports/libcurl.mjs` | Browser worker | Alternative encrypted transport, selectable in settings |
 | Caddy | `caddy:2-alpine` | Server (container) | TLS termination, HTTP/2, reverse proxy, WebSocket passthrough |
 | Express | `express` 5.x | Server | Static file serving and routing |
 
@@ -145,14 +146,35 @@ var connection = new BareMux.BareMuxConnection(
 );
 ```
 
-On launch it installs Epoxy and tells it where the Wisp server is:
+On launch it installs the transport the user picked in settings and tells it where the Wisp server is. `getTransportSpec()` returns the module URL plus the constructor options, because the two transports disagree on the option name:
 
 ```js
-var transportUrl = new URL("epoxy/index.mjs", location.href).href;
-await connection.setTransport(transportUrl, [{ wisp: wispUrl }]);
+// Epoxy
+{ url: new URL("epoxy/index.mjs", location.href).href, options: [{ wisp: wispUrl }] }
+
+// Libcurl
+{ url: new URL("transports/libcurl.mjs", location.href).href, options: [{ websocket: wispUrl }] }
 ```
 
-The result is cached in `activeWisp`. If the transport is already the one requested and the Wisp URL has not changed, it is reused rather than reinstalled.
+The result is cached in `activeWisp` and `activeTransport`. If the same transport is already installed and the Wisp URL has not changed, it is reused rather than reinstalled.
+
+#### Why libcurl goes through an adapter
+
+`bare-mux` 2.1.9 hands a transport a plain object of request headers:
+
+```js
+let o = s instanceof Headers ? Object.fromEntries(s) : s;
+```
+
+`LibcurlClient.request()` in the latest published libcurl-transport (2.0.6) iterates its `headers` argument instead:
+
+```js
+for (let [key, value] of headers) {
+```
+
+A plain object is not iterable, so every request threw `TypeError: headers is not iterable` and Ultraviolet turned it into a 500 page. There is no newer release to wait for, so `docs/transports/libcurl.mjs` subclasses `LibcurlClient` and converts the header shape before delegating. It is the only hand-written module under `docs/transports/`, and `scripts/build-site.mjs` does not touch it.
+
+`bare-mux` loads transports with `await import(url)` and reads the **default** export, so the adapter must export a class as `default`. A named export alone is not enough.
 
 ### 5.3 Navigating to a proxied URL
 
@@ -230,7 +252,31 @@ function getWispUrl() {
 
 If all four produce nothing, the endpoint is empty and launching shows an inline error with an "Open settings" action rather than failing silently.
 
-### 6.1 Normalization
+### 6.1 Presets in the settings drawer
+
+The drawer's **Server** dropdown offers a small set of presets instead of asking people to type a URL:
+
+| Preset | Endpoint | Offered when |
+|--------|----------|--------------|
+| Mist Services | `wss://wisp.mercurywork.shop/` | Always. This is the same value as `DEFAULT_WISP`. |
+| This site's own server | same-origin `/wisp/` | Only where a Wisp server could actually run |
+| Custom server… | whatever is typed | Always |
+
+Saving a preset writes an empty `keystone.wisp`, so `DEFAULT_WISP` keeps governing and the preset stays correct if the default ever changes.
+
+The self-hosted preset is added at runtime by `addLocalPreset()`, not in the markup. GitHub Pages, Netlify, Vercel, Cloudflare Pages and Surge serve files only, so a same-origin `/wisp/` can never exist there; listing the option would give people a choice that is guaranteed to fail. The check is a hostname suffix match:
+
+```js
+function canRunOwnServer() {
+	return !/(^|\.)(github\.io|pages\.dev|netlify\.app|vercel\.app|surge\.sh)$/i.test(
+		location.hostname
+	);
+}
+```
+
+The **Transport** dropdown selects between Epoxy and Libcurl, covered in 5.2.
+
+### 6.2 Normalization
 
 `normalizeWisp()` accepts loose input:
 
@@ -240,7 +286,7 @@ If all four produce nothing, the endpoint is empty and launching shows an inline
 
 Invalid input is returned unchanged; the connection attempt then fails and is reported.
 
-### 6.2 Mixed content
+### 6.3 Mixed content
 
 ```js
 function isSecureForPage(wispUrl) {
@@ -250,7 +296,7 @@ function isSecureForPage(wispUrl) {
 
 An HTTPS page may only use a `wss://` endpoint. A `ws://` endpoint is rejected in two places: when saving in the settings drawer, and again at launch. Both cases show a message and offer the settings drawer. This check exists because the browser would otherwise block the socket with a mixed-content error that is hard to interpret. The Pages site is always HTTPS, so it is always subject to this rule.
 
-### 6.3 Testing and status
+### 6.4 Testing and status
 
 The drawer's Test button opens a real `WebSocket` to the normalized address and resolves on `onopen` or `onerror`, with an 8 second timeout. It reports the result inline.
 
@@ -278,7 +324,15 @@ There are two vendor scripts and they are not interchangeable.
 | `@mercuryworkshop/bare-mux` (`baremuxPath`) | `public/baremux/` | `worker.js`, `index.js`, `index.mjs` |
 | `@mercuryworkshop/epoxy-transport` (`epoxyPath`) | `public/epoxy/` | `index.mjs` |
 
-`scripts/build-site.mjs` does the same into `docs/`, with two differences: bare-mux gets only `index.js` and `worker.js`, and `docs/uv/uv.config.js` is left alone because it is hand written and derives its own base path.
+`scripts/build-site.mjs` does the same into `docs/`, with these differences: bare-mux gets only `index.js` and `worker.js`, it also vendors the libcurl transport, and `docs/uv/uv.config.js` is left alone because it is hand written and derives its own base path.
+
+| Source package | Destination | Files |
+|----------------|-------------|-------|
+| `@mercuryworkshop/libcurl-transport` (`dist`) | `docs/libcurl/` | `index.mjs` |
+
+libcurl's WebAssembly module is embedded inside `index.mjs`, so no `.wasm` file is served. An earlier version of the script also copied `libcurl.wasm`; that file was never requested and has been removed.
+
+`docs/transports/libcurl.mjs` is hand written and is not managed by either script.
 
 Both scripts resolve the source directories from the packages themselves rather than hard-coding paths, so an upstream layout change surfaces as a build error instead of a silently stale file.
 
@@ -440,3 +494,24 @@ Pages site, by page and browser storage:
 | `?wisp=` | Query string | Per-link override, highest priority |
 | `keystone.engine` | `localStorage` | Search engine template |
 | `keystone.theme` | `localStorage` | Light or dark theme |
+| `keystone.transport` | `localStorage` | `epoxy` or `libcurl` |
+
+---
+
+## 11. Why there are no blur filters
+
+The page deliberately uses **zero** `backdrop-filter` declarations and no `filter: blur()` on animated elements. This is a performance constraint, not a style preference, and it is easy to undo by accident.
+
+The original design stacked 12 `backdrop-filter` surfaces (the badge, the search bar, six chips, three feature cards, the drawer scrim) on top of three background orbs, each of which ran `filter: blur(100px)` plus an infinite `drift` animation. Every backdrop-filter has to re-sample the pixels behind it, and those pixels were changing every frame because a blurred, animating surface sat underneath. The result was continuous full-page recomposition.
+
+Measured with software rasterisation in headless Edge (`--disable-gpu-compositing`), which is the only way to see this cost, since a GPU and the 75 fps headless cap both hide it:
+
+| | Before | After |
+|---|---|---|
+| Frame rate | 17.3 fps | 60 fps |
+| p95 frame time | 83.2 ms | 16.7 ms |
+| Dropped frames | 100% | 0% |
+
+The orbs are now multi-stop `radial-gradient`s at a larger size, which look the same at a glance and cost nothing to composite. The drawer scrim is more opaque (`rgba(3, 4, 9, 0.68)`) to make up for the missing blur.
+
+If a frosted-glass surface is ever added back, expect the frame rate to fall immediately on integrated graphics, and re-measure with `--disable-gpu-compositing` rather than trusting an fps counter that is capped at the display refresh rate.

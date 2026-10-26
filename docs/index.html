@@ -198,52 +198,62 @@
 				);
 			}
 
+			/*
+			 * The glow blobs are plain radial gradients, not blurred elements.
+			 * A 100px blur filter would force a full-surface re-raster, and any
+			 * backdrop-filter layered over it would re-sample that surface on
+			 * every frame. Gradients are already soft and cost nothing to hold
+			 * on screen, so the page uses no blur filters and no backdrop
+			 * filters at all.
+			 */
 			.orb {
 				position: absolute;
 				border-radius: 50%;
-				filter: blur(100px);
-				opacity: 0.45;
-				animation: drift 26s ease-in-out infinite alternate;
+				opacity: 0.5;
 			}
 
 			.orb-one {
-				width: 560px;
-				height: 560px;
-				top: -220px;
-				left: -160px;
-				background: radial-gradient(circle, #5d6dff 0%, transparent 70%);
+				width: 720px;
+				height: 720px;
+				top: -320px;
+				left: -260px;
+				background: radial-gradient(
+					circle,
+					rgba(93, 109, 255, 0.55) 0%,
+					rgba(93, 109, 255, 0.18) 38%,
+					transparent 70%
+				);
 			}
 
 			.orb-two {
-				width: 500px;
-				height: 500px;
-				right: -180px;
-				top: 8%;
-				background: radial-gradient(circle, #23d3b4 0%, transparent 70%);
-				animation-delay: -9s;
+				width: 640px;
+				height: 640px;
+				right: -240px;
+				top: 4%;
+				background: radial-gradient(
+					circle,
+					rgba(35, 211, 180, 0.4) 0%,
+					rgba(35, 211, 180, 0.12) 40%,
+					transparent 70%
+				);
 			}
 
 			.orb-three {
-				width: 460px;
-				height: 460px;
-				bottom: -220px;
-				left: 35%;
-				background: radial-gradient(circle, #a563ff 0%, transparent 70%);
-				opacity: 0.28;
-				animation-delay: -17s;
+				width: 620px;
+				height: 620px;
+				bottom: -300px;
+				left: 30%;
+				opacity: 0.34;
+				background: radial-gradient(
+					circle,
+					rgba(165, 99, 255, 0.45) 0%,
+					rgba(165, 99, 255, 0.12) 40%,
+					transparent 70%
+				);
 			}
 
 			html[data-theme="light"] .orb {
-				opacity: 0.24;
-			}
-
-			@keyframes drift {
-				from {
-					transform: translate3d(0, 0, 0) scale(1);
-				}
-				to {
-					transform: translate3d(48px, 36px, 0) scale(1.14);
-				}
+				opacity: 0.3;
 			}
 
 			/* ---------------------------------------------------------------
@@ -419,7 +429,6 @@
 				font-weight: 560;
 				letter-spacing: 0.05em;
 				text-transform: uppercase;
-				backdrop-filter: blur(14px);
 			}
 
 			.eyebrow svg {
@@ -506,7 +515,6 @@
 				border-radius: 20px;
 				background: var(--surface);
 				box-shadow: var(--shadow);
-				backdrop-filter: blur(22px);
 				transition:
 					background 0.2s var(--ease),
 					box-shadow 0.25s var(--ease);
@@ -699,7 +707,6 @@
 				font-size: 0.85rem;
 				font-weight: 520;
 				cursor: pointer;
-				backdrop-filter: blur(10px);
 				transition:
 					color 0.16s var(--ease),
 					border-color 0.16s var(--ease),
@@ -743,7 +750,6 @@
 				border: 1px solid var(--line);
 				border-radius: 18px;
 				background: var(--surface);
-				backdrop-filter: blur(16px);
 				transition:
 					border-color 0.22s var(--ease),
 					transform 0.22s var(--ease),
@@ -858,8 +864,7 @@
 				position: fixed;
 				inset: 0;
 				z-index: 55;
-				background: rgba(3, 4, 9, 0.6);
-				backdrop-filter: blur(4px);
+				background: rgba(3, 4, 9, 0.68);
 				animation: fade 0.2s var(--ease);
 			}
 
@@ -949,6 +954,8 @@
 			}
 
 			#engine-select,
+			#proxy-select,
+			#transport-select,
 			#wisp-input {
 				width: 100%;
 				padding: 12px 14px;
@@ -963,7 +970,9 @@
 					box-shadow 0.18s var(--ease);
 			}
 
-			#engine-select {
+			#engine-select,
+			#proxy-select,
+			#transport-select {
 				padding-right: 38px;
 				-webkit-appearance: none;
 				appearance: none;
@@ -971,6 +980,8 @@
 			}
 
 			#engine-select:focus,
+			#proxy-select:focus,
+			#transport-select:focus,
 			#wisp-input:focus {
 				border-color: var(--accent);
 				box-shadow: 0 0 0 3px var(--glow);
@@ -1244,6 +1255,8 @@
 
 			#uv-address:focus-visible,
 			#engine-select:focus-visible,
+			#proxy-select:focus-visible,
+			#transport-select:focus-visible,
 			#wisp-input:focus-visible {
 				outline: none;
 			}
@@ -1632,10 +1645,44 @@
 			</div>
 
 			<div class="section">
-				<span class="section-label">Connection</span>
+				<span class="section-label">Proxy</span>
 
 				<div class="field">
-					<label for="wisp-input">Proxy server</label>
+					<label for="proxy-select">Server</label>
+					<div class="select-wrap">
+						<select id="proxy-select">
+							<option value="mist">Mist Services (default)</option>
+							<option value="custom">Custom server&hellip;</option>
+						</select>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="m7 10 5 5 5-5" />
+						</svg>
+					</div>
+					<p class="hint">
+						Which Wisp server relays your traffic. Only servers that actually
+						answer are listed, so add your own under Custom.
+					</p>
+				</div>
+
+				<div class="field">
+					<label for="transport-select">Transport</label>
+					<div class="select-wrap">
+						<select id="transport-select">
+							<option value="epoxy">Epoxy (encrypted, default)</option>
+							<option value="libcurl">Libcurl (encrypted)</option>
+						</select>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="m7 10 5 5 5-5" />
+						</svg>
+					</div>
+					<p class="hint">
+						How the browser talks to the server. Epoxy is smaller and starts
+						faster; Libcurl handles some sites better.
+					</p>
+				</div>
+
+				<div class="field">
+					<label for="wisp-input">Server address</label>
 					<div class="row">
 						<input
 							id="wisp-input"
@@ -1767,6 +1814,7 @@
 			var STORAGE = {
 				engine: "keystone.engine",
 				wisp: "keystone.wisp",
+				transport: "keystone.transport",
 				theme: "keystone.theme",
 			};
 			var DEFAULT_ENGINE = "https://www.google.com/search?q=%s";
@@ -1796,6 +1844,8 @@
 				var settingsSave = $("#settings-save");
 				var settingsReset = $("#settings-reset");
 				var engineSelect = $("#engine-select");
+				var proxySelect = $("#proxy-select");
+				var transportSelect = $("#transport-select");
 				var wispInput = $("#wisp-input");
 				var wispTest = $("#wisp-test");
 				var wispResult = $("#wisp-result");
@@ -1806,7 +1856,15 @@
 					new URL("baremux/worker.js", location.href).href
 				);
 
+				/* Preset proxy servers. Only endpoints that actually answer are
+				   listed; anything else belongs under "Custom server". */
+				var PRESETS = {
+					mist: { label: "Mist Services", url: "wss://wisp.mercurywork.shop/" },
+					local: { label: "This site's server", url: "" },
+				};
+
 				var activeWisp = null;
+				var activeTransport = null;
 				var lastFocused = null;
 
 				/* -------------------------------------------------------------
@@ -1861,6 +1919,30 @@
 					);
 				}
 
+				/** Same-origin Wisp endpoint, used when the page is self-hosted. */
+				function localWispUrl() {
+					var scheme = location.protocol === "https:" ? "wss" : "ws";
+					return scheme + "://" + location.host + "/wisp/";
+				}
+
+				/* Static hosts only serve files, so a same-origin Wisp server can
+				   never exist there. Offering that preset on such a host would be a
+				   dead option, so it is added only where it could actually work. */
+				function canRunOwnServer() {
+					return !/(^|\.)(github\.io|pages\.dev|netlify\.app|vercel\.app|surge\.sh)$/i.test(
+						location.hostname
+					);
+				}
+
+				function addLocalPreset() {
+					if (!canRunOwnServer()) return;
+					var custom = proxySelect.querySelector('option[value="custom"]');
+					var option = document.createElement("option");
+					option.value = "local";
+					option.textContent = "This site's own server";
+					proxySelect.insertBefore(option, custom);
+				}
+
 				function getWispUrl() {
 					var fromQuery = new URLSearchParams(location.search).get("wisp");
 					if (fromQuery) return normalizeWisp(fromQuery);
@@ -1874,11 +1956,35 @@
 						location.hostname === "localhost" ||
 						location.hostname === "127.0.0.1"
 					) {
-						var scheme = location.protocol === "https:" ? "wss" : "ws";
-						return scheme + "://" + location.host + "/wisp/";
+						return localWispUrl();
 					}
 
 					return "";
+				}
+
+				/** Which transport module the page should load. */
+				function getTransport() {
+					var saved = read(STORAGE.transport, "epoxy");
+					return saved === "libcurl" ? "libcurl" : "epoxy";
+				}
+
+				/** Absolute URL plus constructor options for the chosen transport. */
+				function getTransportSpec(wispUrl) {
+					if (getTransport() === "libcurl") {
+						return {
+							key: "libcurl",
+							// Adapter normalizes the header shape bare-mux passes;
+							// see docs/transports/libcurl.mjs.
+							url: new URL("transports/libcurl.mjs", location.href).href,
+							options: [{ websocket: wispUrl }],
+						};
+					}
+
+					return {
+						key: "epoxy",
+						url: new URL("epoxy/index.mjs", location.href).href,
+						options: [{ wisp: wispUrl }],
+					};
 				}
 
 				/* -------------------------------------------------------------
@@ -2002,15 +2108,45 @@
 				   Settings drawer
 				   ------------------------------------------------------------- */
 
+				/** Show the saved server and reflect it in the preset dropdown. */
+				function syncProxyFields() {
+					var saved = read(STORAGE.wisp, "");
+					// An empty saved value means "use the built-in default", so
+					// resolve to what launch() would actually use before matching
+					// against a preset. Comparing only the raw saved value would
+					// report the default as a custom server.
+					var effective = saved || DEFAULT_WISP || "";
+					var normalized = effective ? normalizeWisp(effective) : "";
+
+					transportSelect.value = getTransport();
+
+					if (!normalized) {
+						proxySelect.value = "custom";
+						wispInput.value = "";
+					} else if (normalized === normalizeWisp(PRESETS.mist.url)) {
+						proxySelect.value = "mist";
+						wispInput.value = normalized;
+					} else if (
+						proxySelect.querySelector('option[value="local"]') &&
+						normalized === normalizeWisp(localWispUrl())
+					) {
+						proxySelect.value = "local";
+						wispInput.value = normalized;
+					} else {
+						proxySelect.value = "custom";
+						wispInput.value = normalized;
+					}
+
+					wispInput.dataset.invalid = "false";
+				}
+
 				function openSettings() {
 					lastFocused = document.activeElement;
 
 					engineSelect.value = read(STORAGE.engine, DEFAULT_ENGINE);
 					if (!engineSelect.value) engineSelect.value = DEFAULT_ENGINE;
 
-					var saved = read(STORAGE.wisp, "");
-					wispInput.value = saved || DEFAULT_WISP || "";
-					wispInput.dataset.invalid = "false";
+					syncProxyFields();
 					wispResult.hidden = true;
 
 					settingsBackdrop.hidden = false;
@@ -2044,6 +2180,24 @@
 				connPill.addEventListener("click", openSettings);
 				settingsClose.addEventListener("click", closeSettings);
 				settingsBackdrop.addEventListener("click", closeSettings);
+
+				proxySelect.addEventListener("change", function () {
+					if (proxySelect.value === "mist") {
+						wispInput.value = normalizeWisp(PRESETS.mist.url);
+					} else if (proxySelect.value === "local") {
+						wispInput.value = localWispUrl();
+					}
+					wispInput.dataset.invalid = "false";
+					wispResult.hidden = true;
+				});
+
+				// Typing a custom address switches the dropdown to "Custom".
+				wispInput.addEventListener("input", function () {
+					if (proxySelect.value !== "custom") {
+						proxySelect.value = "custom";
+					}
+					wispInput.dataset.invalid = "false";
+				});
 
 				wispTest.addEventListener("click", async function () {
 					var url = normalizeWisp(wispInput.value);
@@ -2088,9 +2242,16 @@
 					}
 
 					write(STORAGE.engine, engineSelect.value);
-					write(STORAGE.wisp, url);
+					// Store the preset as a blank override so DEFAULT_WISP keeps
+					// working if the default ever changes.
+					write(
+						STORAGE.wisp,
+						url && url === normalizeWisp(PRESETS.mist.url) ? "" : url
+					);
+					write(STORAGE.transport, transportSelect.value);
 					searchEngine.value = engineSelect.value || DEFAULT_ENGINE;
 					activeWisp = null;
+					activeTransport = null;
 					refreshConn();
 					clearError();
 					closeSettings();
@@ -2099,12 +2260,14 @@
 				settingsReset.addEventListener("click", function () {
 					write(STORAGE.engine, "");
 					write(STORAGE.wisp, "");
+					write(STORAGE.transport, "");
 					engineSelect.value = DEFAULT_ENGINE;
-					wispInput.value = DEFAULT_WISP || "";
-					wispInput.dataset.invalid = "false";
-					wispResult.hidden = true;
+					transportSelect.value = "epoxy";
 					searchEngine.value = DEFAULT_ENGINE;
 					activeWisp = null;
+					activeTransport = null;
+					syncProxyFields();
+					wispResult.hidden = true;
 					refreshConn();
 				});
 
@@ -2275,7 +2438,7 @@
 					setConn("checking", "Connecting");
 
 					var target = resolveInput(input, searchEngine.value);
-					var transportUrl = new URL("epoxy/index.mjs", location.href).href;
+					var spec = getTransportSpec(wispUrl);
 
 					registerSW()
 						.catch(function (error) {
@@ -2292,13 +2455,18 @@
 							});
 						})
 						.then(function (current) {
-							if (current === transportUrl && activeWisp === wispUrl) return;
-							return connection.setTransport(transportUrl, [
-								{ wisp: wispUrl },
-							]);
+							if (
+								current === spec.url &&
+								activeWisp === wispUrl &&
+								activeTransport === spec.key
+							) {
+								return;
+							}
+							return connection.setTransport(spec.url, spec.options);
 						})
 						.then(function () {
 							activeWisp = wispUrl;
+							activeTransport = spec.key;
 							setConn("ok", "Connected");
 							openBrowser(target);
 							frame.src =
@@ -2306,6 +2474,7 @@
 						})
 						.catch(function (error) {
 							activeWisp = null;
+							activeTransport = null;
 							setConn("fail", "Offline");
 
 							if (error && error.stage === "worker") {
@@ -2416,6 +2585,10 @@
 					engineSelect.value = DEFAULT_ENGINE;
 					searchEngine.value = DEFAULT_ENGINE;
 				}
+
+				addLocalPreset();
+				transportSelect.value = getTransport();
+				syncProxyFields();
 
 				var savedTheme = read(STORAGE.theme, "");
 				setTheme(
