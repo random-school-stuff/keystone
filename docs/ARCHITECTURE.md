@@ -274,7 +274,7 @@ function canRunOwnServer() {
 }
 ```
 
-The **Transport** dropdown selects between Epoxy and Libcurl, covered in 5.2.
+The **Transport** dropdown selects between Epoxy and Libcurl, covered in 5.2. Epoxy is the default because it is the most reliable: Libcurl installs and proxies correctly, but some sites render slowly or not at all through it, so it is labelled experimental rather than presented as an equal choice.
 
 ### 6.2 Normalization
 

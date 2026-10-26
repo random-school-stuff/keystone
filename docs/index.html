@@ -1668,16 +1668,17 @@
 					<label for="transport-select">Transport</label>
 					<div class="select-wrap">
 						<select id="transport-select">
-							<option value="epoxy">Epoxy (encrypted, default)</option>
-							<option value="libcurl">Libcurl (encrypted)</option>
+							<option value="epoxy">Epoxy (recommended)</option>
+							<option value="libcurl">Libcurl (experimental)</option>
 						</select>
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path d="m7 10 5 5 5-5" />
 						</svg>
 					</div>
 					<p class="hint">
-						How the browser talks to the server. Epoxy is smaller and starts
-						faster; Libcurl handles some sites better.
+						How the browser talks to the server. Epoxy is the most reliable
+						and the fastest to start. Libcurl is an alternative engine; a few
+						sites render more slowly or not at all with it.
 					</p>
 				</div>
 
