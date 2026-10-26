@@ -2,6 +2,11 @@
 
 This is the long-form version of the deployment section in the [README](../README.md). It assumes you start with nothing on Oracle Cloud and end with Keystone reachable at `https://<your-domain>`.
 
+This guide stands up the proxy backend. Two things use it:
+
+- The Node app's own page, served from the same origin at `https://<your-domain>/`. That page defaults to the local `/wisp/` endpoint, so it works as soon as the stack is up.
+- The static site on GitHub Pages, which has no backend of its own and must be pointed at `wss://<your-domain>/wisp/`. Section 10 covers that.
+
 The instance runs two Docker containers:
 
 - `app` — the Node server, listening on 8080, not published to the host
@@ -239,7 +244,50 @@ curl -sI https://keystone.example.com/wisp/ \
 
 ---
 
-## 10. Operating notes
+## 10. Pointing the GitHub Pages site at this server
+
+The static site at `https://random-school-stuff.github.io/keystone/` is served by GitHub Pages, which runs no backend. It reaches the proxy through the Wisp endpoint you just deployed.
+
+The endpoint URL is the site's own scheme plus `/wisp/`:
+
+```text
+wss://keystone.example.com/wisp/
+```
+
+It must be `wss://`, not `ws://`. The Pages site is always HTTPS, and a browser blocks a `ws://` socket from an HTTPS page as mixed content. The page rejects the value in its settings drawer for the same reason.
+
+### 10.1 Set the default for every visitor
+
+Edit `DEFAULT_WISP` near the top of the application script in `docs/index.html`:
+
+```js
+var DEFAULT_WISP = "wss://keystone.example.com/wisp/";
+```
+
+Commit and push. Pages rebuilds automatically. The value is the fallback for anyone who has not saved their own endpoint, so this is the step that makes the public site work.
+
+The repository ships `wss://wisp.mercurywork.shop/` there. That is a public demo server shared with other people and intended for testing only; replace it with your own host.
+
+### 10.2 Verify before publishing
+
+Open the Pages site, click the connection pill in the top bar to open settings, paste the endpoint, and press **Test**. It opens a real WebSocket and reports whether the server answered within 8 seconds. A failure at this point means the endpoint URL, the scheme, or the VCN and firewall rules are wrong, not the page.
+
+Then press **Save** and load a page. The pill should move from `Ready` to `Connected`.
+
+### 10.3 Overrides
+
+Two overrides exist for testing without editing the file:
+
+- The settings drawer saves to `localStorage` under `keystone.wisp`, for that browser only.
+- `?wisp=wss://keystone.example.com/wisp/` on the URL applies to that link only, and takes priority over both the saved value and `DEFAULT_WISP`.
+
+### 10.4 What this deployment exposes
+
+Setting `DEFAULT_WISP` makes your Oracle instance the proxy for everyone who visits the Pages site. The stream limits and IP blocks from section 8 of [ARCHITECTURE.md](ARCHITECTURE.md) apply, but there is no authentication: the endpoint is open to anyone who reads the page source. If that is not what you want, put access control in front of `/wisp/` or leave `DEFAULT_WISP` empty and let each visitor supply their own server.
+
+---
+
+## 11. Operating notes
 
 **Updating:**
 
@@ -279,7 +327,7 @@ docker compose up -d app
 
 ---
 
-## 11. Without Docker
+## 12. Without Docker
 
 `deploy/keystone.service` is a hardened systemd unit that runs `node src/index.js` directly as an unprivileged `keystone` user with `HOST=127.0.0.1`. The comment block at the top of the file lists the setup sequence: create the user, copy the tree to `/opt/keystone`, run `npm ci` and `npm run build` as that user, install the unit, enable it.
 
