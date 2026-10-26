@@ -57,6 +57,42 @@ Open <http://localhost:8080>.
 
 `http://localhost` is the only place plain HTTP works. Browsers only allow service workers on HTTPS or on `localhost`/`127.0.0.1`. On any other hostname the page will load but proxying will fail.
 
+## Two ways to deploy
+
+Keystone ships two independent front ends. Pick one, or run both.
+
+| | Static site (`docs/`) | Node app (`src/`) |
+|---|---|---|
+| Host | GitHub Pages | Your own server |
+| Serves the proxy backend | No | Yes |
+| Build step on the host | None | `npm run build` |
+| Needs a Wisp endpoint | Yes | No, it is built in |
+
+GitHub Pages serves static files only, so it can host the page but not the proxy. A Pages deployment must point at a Wisp endpoint running somewhere else. The Node app provides both the page and that endpoint on one origin, which is simpler and avoids a second piece of infrastructure.
+
+### Static site on GitHub Pages
+
+The site is a single self-contained file, `docs/index.html`: markup, styles, and client logic all live in it. The Ultraviolet engine files sit next to it because browsers require service workers and worker scripts to be real same-origin files, and they are committed because Pages has no build step.
+
+To publish:
+
+1. Repo Settings → Pages → Source: **Deploy from a branch**, branch `main`, folder **`/docs`**.
+2. Set the backend URL in `docs/index.html`:
+
+```js
+const DEFAULT_WISP = "wss://your-server.example.com/wisp/";
+```
+
+Commit and push. Pages rebuilds automatically. The URL is `https://<user>.github.io/<repo>/`.
+
+You can also leave `DEFAULT_WISP` empty and set the endpoint in the page's Settings drawer, or override it per link with `?wisp=wss://your-server/wisp/`. When no endpoint is set, the page shows a setup notice instead of failing silently.
+
+`uv/uv.config.js` derives its base path from whichever context loads it, so the same files work at a domain root and under a Pages project subpath. `npm run build:site` refreshes the committed engine bundles after a dependency change.
+
+### Node app on a server
+
+See the Oracle section below.
+
 ## Deploy to Oracle Cloud (Always Free)
 
 Target: an Ubuntu VM on Oracle Cloud's Always Free tier, running `docker compose` with two services — the Node app and Caddy for TLS.
