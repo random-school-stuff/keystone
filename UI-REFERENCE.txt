@@ -1,0 +1,676 @@
+================================================================================
+KEYSTONE WEB PROXY - COMPLETE UI REFERENCE
+A handoff document for another AI or developer to improve the interface.
+================================================================================
+
+Live site:  https://random-school-stuff.github.io/keystone/
+Repository: https://github.com/random-school-stuff/keystone
+Source file: docs/index.html   (the entire UI, 3436 lines, 91.8 KB raw / 22.4 KB
+                                gzipped - this is ONE file by design)
+License:    AGPL-3.0-or-later
+
+Read this whole document before changing anything. Several parts of the UI look
+arbitrary but exist to work around hard constraints, and undoing them breaks the
+site in ways that are not obvious from reading the code.
+
+
+--------------------------------------------------------------------------------
+1. WHAT THE SITE IS
+--------------------------------------------------------------------------------
+
+Keystone is a web proxy. The user types a URL or a search query. A service
+worker running in their browser fetches the target page and rewrites it so it
+loads inside an iframe on this page. The destination site sees the proxy
+server's address, not the visitor's.
+
+The UI is therefore two screens in one document:
+
+  A. The LANDING SCREEN  - branding, search box, quick links, feature cards.
+  B. The BROWSING SURFACE - a toolbar plus a full-bleed iframe holding the
+                            proxied site.
+
+Plus one overlay:
+
+  C. The SETTINGS DRAWER  - slides in from the right. Three sections:
+                            Appearance, Proxy, Search.
+
+There is no router, no framework, no build step for the UI, and no server-side
+rendering. Everything is vanilla HTML, CSS and ES5-flavoured JavaScript in one
+file. Do not introduce a framework without a very good reason; the whole point
+is that this file can be served by any static host.
+
+
+--------------------------------------------------------------------------------
+2. HARD CONSTRAINTS - READ BEFORE PROPOSING CHANGES
+--------------------------------------------------------------------------------
+
+These are not preferences. Each one is load-bearing.
+
+2.1 The UI MUST stay a single self-contained HTML file.
+    docs/index.html is served by GitHub Pages from the /docs folder. Anything
+    that needs a bundler, a dev server, or a module graph at runtime will not
+    deploy. Inline CSS in <style> and inline JS in <script> are the only options.
+
+2.2 Some assets CANNOT be inlined, and that is why sibling folders exist.
+    Service workers and Web Worker scripts must be real same-origin files. The
+    page therefore ships alongside:
+        docs/uv/            Ultraviolet engine + its service worker
+        docs/scram/         Scramjet engine + its service worker
+        docs/keystone/      The hand-written Keystone engine
+        docs/baremux/       Bare-mux client and worker
+        docs/epoxy/         Epoxy transport
+        docs/libcurl/       Libcurl transport
+        docs/transports/    A small hand-written libcurl adapter
+        docs/logo.png, favicon.png, apple-touch-icon.png
+    Do not try to inline or remove these.
+
+2.3 No backdrop-filter, no filter: blur() on animated elements.
+    This was measured, not guessed. The original design had 12 backdrop-filter
+    layers stacked over 3 blurred, drifting orbs and ran at 17.3 fps with 100%
+    dropped frames. Removing every blur filter took it to a solid 60 fps with 0%
+    dropped frames at 8x CPU throttle. Glow is done with radial-gradients only.
+    If a redesign wants frosted glass, it will re-introduce the stutter.
+
+2.4 Muted text needs 4.5:1 contrast, everywhere, in every theme.
+    --text-faint is used at 0.72rem bold, which is below the WCAG "large text"
+    threshold, so it needs the full 4.5:1 and not 3:1. All seven themes are
+    verified. A new theme must be checked against BOTH --bg-elev and
+    --field-bg, because footer links sit on the page background while drawer
+    labels sit on the elevated surface.
+
+2.5 Native <select> popups need an explicit opaque option background.
+    The popup list is drawn by the browser, not by the page. A dark theme
+    inherits near-white text into a popup painted on the browser's own light
+    surface, which is invisible. Every <option> sets background-color and color
+    explicitly, and each theme declares `color-scheme`. Do not remove either.
+
+2.6 Theming is token-based and must stay that way.
+    Each theme is one block of CSS custom properties. Nothing else. No
+    per-theme rules for individual components.
+
+
+--------------------------------------------------------------------------------
+3. VISUAL DESIGN SYSTEM
+--------------------------------------------------------------------------------
+
+3.1 Theme tokens (defined once per theme in the <style> block)
+
+    --bg            page background
+    --bg-soft       slightly raised background (rarely used)
+    --bg-elev       elevated surfaces: drawer, cards, sticky bars
+    --text          primary text
+    --text-dim      secondary text, labels, footer links
+    --text-faint    muted: section labels, hints, placeholders  (>= 4.5:1)
+    --line          1px border colour
+    --line-strong   hover border colour
+    --surface       translucent fill for buttons and chips
+    --surface-hover hover fill
+    --field-bg      OPAQUE fill for inputs and <select> - not translucent
+    --accent        primary accent (links, focus rings, active states)
+    --accent-2      secondary accent (gradients)
+    --accent-3      tertiary accent (gradients)
+    --glow          accent at low alpha, used for focus rings and shadows
+    --danger / --warn / --ok    status colours
+    --shadow        large soft drop shadow
+    --glow-a/b/c    three radial background washes
+    --orb-a/b/c     three large blurred-looking orbs (gradients, not blur)
+    --orb-opacity   global orb alpha
+    --ease          standard transition curve
+
+    Theme blocks are keyed on [data-theme="name"], NOT html[data-theme], so
+    that the swatch previews in the settings drawer can carry their own
+    data-theme attribute and paint themselves from the real palette.
+
+3.2 Typography
+    Font stack: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif. No webfont is loaded; Inter is used if
+    the visitor happens to have it installed.
+    Base 16px, line-height 1.5.
+    The hero <h1> uses clamp(2.6rem, 6.8vw, 4.7rem), weight 760, letter-spacing
+    -0.045em, line-height 1.02.
+    Monospace is used only for the server-address input and the error detail.
+
+3.3 Layout
+    .shell is max-width 1140px, centred, with clamp(18px, 4vw, 40px) side
+    padding. The page is a flex column with min-height 100vh so the footer sits
+    at the bottom on short screens.
+
+3.4 Background
+    .backdrop is a fixed, pointer-events:none layer at z-index -1 containing:
+      - three radial gradients (--glow-a/b/c) for the ambient colour wash
+      - .grid-lines: a perspective-rotated grid, masked with a radial gradient
+      - three .orb elements: large radial gradients acting as light blooms
+    All of it is gradients. Nothing is blurred.
+
+3.5 Motion
+    Transitions use --ease (cubic-bezier(0.22, 0.61, 0.36, 1)) at 0.16-0.32s.
+    There is a @media (prefers-reduced-motion: reduce) block that disables
+    transitions and the drawer animation. Keep it.
+
+
+--------------------------------------------------------------------------------
+4. SCREEN A - THE LANDING SCREEN
+--------------------------------------------------------------------------------
+
+Layout top to bottom:
+
+4.1 TOP BAR (.topbar)
+    A flex row with the brand on the left and actions on the right.
+
+    LEFT: .brand - a link to "./" containing:
+      - <img class="brand-mark" src="logo.png" width=34 height=34 alt="">
+        The real logo, an orange/amber circular emblem. alt is intentionally
+        empty because the adjacent text already says "Keystone".
+      - <span class="brand-name">Keystone</span>
+
+    RIGHT: .topbar-actions, containing three controls:
+
+      a) Connection pill  #conn-pill  (button)
+         Shows the proxy server's state as a coloured dot plus a word.
+         data-state values and their labels:
+             "checking"  -> "Checking"   (initial, before the script runs)
+             "ready"     -> "Ready"      (a server is configured and is wss://)
+             "ok"        -> "Connected"  (a launch succeeded)
+             "fail"      -> "Offline"    (a launch failed)
+                          or "Insecure" (server is ws:// on an https page)
+             "unset"     -> "Not set"    (no server configured)
+         Clicking it opens the settings drawer.
+         NOTE: this pill is decorative-ish. It reports configuration state, not
+         a live health check. It does not poll the server.
+
+      b) Theme toggle  #theme-toggle  (icon-only button)
+         Flips between the Ember (dark) and Daylight (light) themes. The full
+         seven-theme picker lives in the settings drawer.
+         The icon shown depends on html[data-scheme], not on the theme name:
+         dark scheme shows a sun, light scheme shows a moon. This means adding
+         a theme needs no CSS change here.
+         aria-label updates to "Switch to dark theme" / "Switch to light theme".
+
+      c) Settings button  #settings-toggle  (icon-only button)
+         A gear. Opens the settings drawer. Has aria-expanded and aria-controls.
+
+4.2 HERO (.hero) - centred column
+
+    a) .eyebrow  - a small pill reading "Powered by Mist Services" with a
+       four-point sparkle icon. This is the required attribution badge.
+
+    b) <h1 class="title">  - two lines:
+           "The web,"
+           "unlocked."   <- .title-accent, painted with a three-stop gradient
+                            through background-clip: text
+
+    c) .subtitle  - one short paragraph explaining what the site does.
+
+    d) .search-wrap > <form id="uv-form" class="search">
+       The main input. Contents, left to right:
+         - a magnifier icon (decorative)
+         - <input id="uv-address"> placeholder "Search the web or paste a link"
+         - <button class="go-button"> "Go" plus an arrow
+         - <input id="uv-search-engine" type="hidden"> the search template
+
+       BEHAVIOUR - resolveInput(input, template) decides what the user meant:
+         1. If the input parses as a full URL, use it as-is.
+         2. Else if "http://" + input parses AND its hostname contains a dot,
+            treat it as a bare domain and prefix http://.
+         3. Otherwise it is a search query: substitute it into the chosen search
+            template's %s placeholder.
+       This is why "wikipedia.org" goes to Wikipedia but "how to cook rice"
+       goes to the search engine.
+
+       On submit: launch() runs. While busy, .go-button is disabled and the form
+       gets aria-busy="true".
+
+    e) .status  #uv-error  (role=status, aria-live=polite)
+       An inline message area under the search box. Empty by default. On error
+       it fills with a sentence, optionally a button ("Open settings"), and
+       optionally a <pre id="uv-error-code"> with a stack trace.
+       Tones: default (danger), "warn".
+
+    f) .quick  (role=group, aria-label="Popular destinations")
+       Six pill-shaped shortcut buttons. Each has data-href and a --chip-color
+       custom property that tints its dot:
+           YouTube    https://www.youtube.com        #ff4d4d
+           Reddit     https://www.reddit.com         #ff7a33
+           Discord    https://discord.com/app        #6c7cff
+           Wikipedia  https://en.wikipedia.org       #d8d8d8
+           Spotify    https://open.spotify.com       #3ee07a
+           GitHub     https://github.com             #b8b8b8
+       Clicking one fills the search box and launches immediately.
+       HONEST NOTE ON RELIABILITY: through shared public proxy servers, Reddit
+       returns a bot wall and YouTube only loads its shell. These are the
+       destinations' own anti-datacenter-IP policies, not UI bugs. Consider
+       whether these chips set false expectations; that is a legitimate thing to
+       improve.
+
+    g) .features  - three <article class="feature"> cards in a row:
+           "Encrypted in transit", "Sandboxed session", "Nothing to install"
+       Each has a .feature-icon (inline SVG), an <h2>, and a short paragraph.
+       These are marketing copy. They collapse to one column below 880px.
+
+4.3 FOOTER (.footer)
+    - .footer-links: three links - Ultraviolet, Wisp, Source - each opening in a
+      new tab with rel="noopener noreferrer".
+    - .footer-note: the legal/disclaimer paragraph.
+
+    IMPORTANT: footer links use --text-dim on --bg, not on --bg-elev. Any theme
+    check must test that specific pairing.
+
+
+--------------------------------------------------------------------------------
+5. SCREEN B - THE BROWSING SURFACE
+--------------------------------------------------------------------------------
+
+Hidden by default. <section class="browser" id="browser" hidden>.
+
+When active, body gets .is-browsing which sets overflow: hidden so the landing
+page cannot scroll behind the iframe.
+
+Contents:
+
+5.1 .browser-bar  - a horizontal toolbar
+    a) #browser-back  - "Back" with a left arrow. Closes the surface, blanks the
+       iframe, and returns focus to the search box with its text selected.
+    b) #browser-url   - a read-only div showing the current target URL. It is
+       NOT an editable address bar. It has a title attribute for the full URL
+       and is set by openBrowser(target).
+    c) #browser-reload - icon-only, aria-label "Reload page". Reloads the frame.
+       For Scramjet it calls scramFrame.reload(); otherwise it reloads
+       frame.contentWindow or reassigns frame.src.
+    d) #browser-external - icon-only, aria-label "Open in new tab". Opens the
+       current target in a real new tab.
+
+5.2 #browser-loading  - a centred spinner plus "Connecting to the proxy..."
+    Shown until the frame reports a load.
+
+5.3 <iframe id="uv-frame">
+    allow="fullscreen; clipboard-read; clipboard-write".
+    NOTE: the app does NOT always set frame.src. Scramjet drives its frame
+    through a controller handle (scramFrame) instead. Any change to navigation
+    must handle both paths.
+
+5.4 Known UI limitation worth improving
+    There is no in-surface back/forward for the proxied site, no tab bar, and no
+    way to open several proxied pages at once. The toolbar has exactly one
+    navigation control (Back to Keystone). This is the single biggest UX gap.
+
+
+--------------------------------------------------------------------------------
+6. SCREEN C - THE SETTINGS DRAWER
+--------------------------------------------------------------------------------
+
+Opened by #settings-toggle or by clicking the connection pill.
+Closed by #settings-close, by clicking the backdrop, or by pressing Escape
+(Escape also leaves the browsing surface when the drawer is already closed).
+
+Structure: <aside class="drawer" id="settings" aria-label="Settings" hidden>
+           It slides in from the right; width min(400px, 94vw).
+
+The drawer is taller than a laptop viewport. The Save/Reset bar is therefore
+`position: sticky; bottom: -22px` so it stays reachable while the middle
+scrolls. Do not replace it with margin-top:auto; that pushes Save below the fold.
+
+Sections, in order:
+
+--------------------------------------------------------------------------------
+6.1 SECTION: APPEARANCE
+--------------------------------------------------------------------------------
+
+Contains exactly one control group: the THEME PICKER.
+
+  #theme-grid  (role=group, aria-label="Theme")
+  Seven <button class="theme-swatch"> elements. Each has:
+      - data-theme-name="dark|light|indigo|neon|forest|candy|sepia"
+      - aria-pressed="true" on the selected one only
+      - a <span class="theme-preview" data-theme="NAME"> swatch
+      - a visible text label
+
+  The swatch is a miniature of the real UI: a coloured dot (accent gradient)
+  plus a text bar, on the theme's own --bg with its own --glow washes. Because
+  the preview carries data-theme itself, it paints from the real token block
+  rather than a hand-copied palette. Adding a theme cannot leave a stale swatch.
+
+  The seven themes:
+
+  | data-theme | Label     | Scheme | Description                              |
+  |------------|-----------|--------|------------------------------------------|
+  | dark       | Ember     | dark   | DEFAULT. Amber and ember, from the logo. |
+  | light      | Daylight  | light  | Warm white.                              |
+  | indigo     | Indigo    | dark   | The original blue/teal scheme.           |
+  | neon       | Neon      | dark   | Magenta and cyan on deep violet.         |
+  | forest     | Forest    | dark   | Green.                                   |
+  | candy      | Candy     | light  | Pink.                                    |
+  | sepia      | Sepia     | light  | Cream paper.                             |
+
+  Selecting a swatch applies immediately (no Save needed) and writes
+  localStorage "keystone.theme". It also updates:
+      - html[data-theme]   the palette
+      - html[data-scheme]  "dark" or "light", drives the top-bar toggle icon
+      - <meta name="theme-color">  the mobile browser chrome colour
+      - aria-pressed on all seven swatches
+
+  Below the grid: a hint reading "Changes apply immediately and are remembered
+  on this device."
+
+  Adding a theme requires FOUR coordinated edits:
+      1. A [data-theme="name"] token block in the <style>
+      2. An entry in the THEMES map in the app script (label, scheme, color)
+      3. An entry in the pre-paint `themes` map in the <head> script, which
+         runs before first paint to avoid a flash of the wrong theme
+      4. A <button class="theme-swatch"> in the markup
+  Miss step 3 and the page flashes the wrong colours on load.
+
+--------------------------------------------------------------------------------
+6.2 SECTION: PROXY
+--------------------------------------------------------------------------------
+
+Four controls, in this order.
+
+  a) Engine  #proxy-engine-select
+     Which proxy engine rewrites pages. Each engine is a separate service
+     worker under its own path, and only the selected one is downloaded.
+     Options:
+        scramjet     "Scramjet (recommended)"          DEFAULT
+        ultraviolet  "Ultraviolet (legacy)"
+        keystone     "Keystone (built-in, basic)"
+     The <p class="hint" id="engine-hint"> below it is rewritten by
+     syncEngineHint() to describe the current choice. Scramjet and Ultraviolet
+     support most sites; Keystone handles static pages only and the hint says so
+     plainly. Do not soften that.
+
+  b) Server  #proxy-select
+     Which Wisp server relays traffic. Options:
+        mist       "Mist Services (default)"   wss://wisp.mercurywork.shop/
+        freewisp   "FreeWisp"                  wss://wisp.freewisp.org/
+        terbium    "Terbium"                   wss://wisp.terbiumon.top/wisp/
+        anura      "Anura"                     wss://anura.pro/
+        reeyuki    "Reeyuki"                   wss://hurt-agata-liventcord-api-
+                                               7072e9a6.koyeb.app/
+        custom     "Custom server..."          user-supplied
+        local      "This site's own server"    injected at runtime, see below
+     The hint below (#proxy-hint) is rewritten by syncProxyHint() to show that
+     server's note, because the servers differ in ways that matter: FreeWisp is
+     TCP-only on ports 22/80/443/8080/8443 with per-IP caps, for instance.
+
+     The "local" option is added at runtime by addLocalPreset() and ONLY on
+     hosts that can actually run a server. It is hidden on github.io, pages.dev,
+     netlify.app, vercel.app and surge.sh, because a static host can never serve
+     a /wisp/ endpoint. Do not show it unconditionally; it would be a dead
+     option.
+
+     Every listed server was verified by completing a real Wisp handshake AND
+     relaying an HTTP response. A host that merely accepts the WebSocket is not
+     enough; several do that and then never speak the protocol. Re-verify with
+     `node .qa/wisp-probe.mjs <url>`.
+
+  c) Transport  #transport-select
+     How the browser talks to the server.
+        epoxy    "Epoxy (recommended)"      DEFAULT, most reliable, fastest start
+        libcurl  "Libcurl (experimental)"   alternative, some sites break
+     libcurl is labelled experimental because Wikipedia and Google render blank
+     through it in-browser even though the raw fetch returns 200. That label is
+     honest and should stay until it is genuinely fixed.
+
+  d) Server address  #wisp-input  +  #wisp-test button
+     A free-text field for any Wisp URL. Typing in it flips #proxy-select to
+     "custom". The Test button opens a WebSocket to the address and reports
+     success or failure inline via #wisp-result.
+
+     Normalisation rules in normalizeWisp():
+       - bare host "example.com"        -> wss://example.com/wisp/
+       - "http://..." becomes "ws://..." and "https://..." becomes "wss://..."
+       - an empty path becomes "/wisp/"
+       - a URL with a query or fragment is left alone
+     Mixed content is refused: on an HTTPS page a ws:// address is rejected both
+     at save time and at launch time, with a message telling the user to use
+     wss://.
+
+     #wisp-result is a status box with data-tone "ok" | "warn" | "fail".
+
+6.3 SECTION: SEARCH
+--------------------------------------------------------------------------------
+
+  #engine-select  "Default engine"
+  The search engine used when the input is not a URL.
+     Google        https://www.google.com/search?q=%s
+     DuckDuckGo    https://duckduckgo.com/?q=%s
+     Bing          https://www.bing.com/search?q=%s
+     Brave Search  https://search.brave.com/search?q=%s
+     Startpage     https://www.startpage.com/sp/search?query=%s
+  %s is replaced with the URL-encoded query.
+
+6.4 FOOTER OF THE DRAWER  .drawer-actions
+--------------------------------------------------------------------------------
+
+  #settings-reset  "Reset"  (ghost style)
+     Clears the stored search engine, proxy engine, server address and
+     transport, restores their defaults, resets the theme to Ember, refreshes
+     the engine hint and the proxy hint, and re-checks the connection pill.
+     It does NOT close the drawer, so the user can see what changed.
+
+  #settings-save   "Save"   (solid style)
+     Validates the server address, then persists everything and closes the
+     drawer.
+     A subtlety worth preserving: saving the DEFAULT preset stores an empty
+     value rather than the URL, so that DEFAULT_WISP keeps governing if the
+     default is ever changed. Other presets are stored by URL so that editing
+     the preset list cannot silently move a visitor onto a different server.
+
+
+--------------------------------------------------------------------------------
+7. STORED PREFERENCES (localStorage)
+--------------------------------------------------------------------------------
+
+  keystone.theme         "dark" | "light" | "indigo" | "neon" | "forest" |
+                         "candy" | "sepia"
+  keystone.proxyEngine   "scramjet" | "ultraviolet" | "keystone"
+  keystone.wisp          a full wss:// URL, or empty for "use the default"
+  keystone.transport     "epoxy" | "libcurl"
+  keystone.engine        a search URL template containing %s
+
+  Anything unrecognised falls back to a default rather than breaking. All reads
+  and writes are wrapped in try/catch because storage can be blocked, in which
+  case the value still applies for the current session.
+
+
+--------------------------------------------------------------------------------
+8. URL PARAMETER
+--------------------------------------------------------------------------------
+
+  ?wisp=wss://your-server.example/wisp/
+
+  Overrides the stored server for that visit, and takes priority over
+  localStorage. Useful for sharing a link that points at a specific server.
+  Resolution order for the server address:
+      1. ?wisp= query parameter
+      2. localStorage "keystone.wisp"
+      3. the built-in DEFAULT_WISP
+      4. same-origin /wisp/ (only when running on localhost or 127.0.0.1)
+
+
+--------------------------------------------------------------------------------
+9. RESPONSIVE BEHAVIOUR
+--------------------------------------------------------------------------------
+
+Three breakpoints, all max-width:
+
+  880px  - .features collapses from three columns to one (max 520px wide)
+  620px  - the connection pill hides its text and shows only the dot
+  560px  - smaller top-bar padding, tighter search box, the Go button hides its
+           label and shows only the arrow, tighter quick-link gaps, browser bar
+           buttons hide their text labels, footer links tighten
+
+Below 560px the layout is a single column with everything centred.
+The drawer is min(400px, 94vw) so it stays usable on a phone.
+
+KNOWN GAP: the mobile experience has never been tested on a real device, only
+in a 390px-wide headless viewport. The proxied iframe on a phone, in particular,
+is worth attention.
+
+
+--------------------------------------------------------------------------------
+10. ACCESSIBILITY STATE (current)
+--------------------------------------------------------------------------------
+
+  - No axe-core WCAG 2.0 A/AA violations, in all seven themes, with the settings
+    drawer both open and closed. Verified in a real browser.
+  - Every icon-only button has an aria-label and a title.
+  - #uv-error is role=status with aria-live=polite.
+  - The settings drawer sets aria-expanded on its toggle and aria-controls.
+  - The theme picker uses aria-pressed, not a fake radio group.
+  - All interactive targets are at least 24px tall; most are 42-44px.
+  - Focus is restored to the previously focused element when the drawer closes.
+  - prefers-reduced-motion is honoured.
+  - Keyboard shortcuts that exist:
+        Enter   submit the search
+        Escape  close the settings drawer, or else leave the browsing surface
+        "/"     focus the search box (ignored while typing in a field)
+
+  GAPS WORTH IMPROVING:
+  - The drawer is not a focus trap. Tab can leave it.
+  - The theme swatches are buttons in a group, not a radiogroup; arrow-key
+    navigation between them does not work.
+  - The browser surface has no skip link and the iframe is not labelled beyond
+    its title attribute.
+  - There is no visible focus style on some hover-only elements.
+
+
+--------------------------------------------------------------------------------
+11. WHERE THINGS LIVE IN docs/index.html
+--------------------------------------------------------------------------------
+
+  Lines are approximate; search for the named anchors.
+
+  ~1-50      <head>: meta, favicon links, the pre-paint theme script
+  ~50-300    Theme token blocks: [data-theme="dark|light|indigo|neon|forest|
+             candy|sepia"]
+  ~300-600   Reset, body, backdrop, orbs, shell, top bar, brand, connection
+             pill, icon buttons
+  ~600-1050  Hero: title, subtitle, search form, status, chips, features
+  ~1050-1100 Footer
+  ~1100-1500 Settings drawer: backdrop, drawer shell, sections, fields,
+             selects, theme picker styles, test result, sticky action bar
+  ~1500-1700 Browser surface and its toolbar
+  ~1620-1720 Responsive breakpoints and reduced-motion
+  ~1720-2200 All markup (landing, footer, drawer, browsing surface)
+  ~2200+     The application script:
+               Configuration  DEFAULT_WISP, STORAGE, THEMES, PROXY_ENGINES,
+                              PRESETS
+               init()         wires every control
+               Preferences    read() / write()
+               normalizeWisp(), isSecureForPage(), localWispUrl(),
+                              canRunOwnServer(), addLocalPreset()
+               Engines        ENGINE_SCRIPTS, loadScript(), ensureEngine()
+               Connection     setConn(), refreshConn()
+               Themes         setTheme()
+               Settings       presetFor(), syncProxyFields(), syncProxyHint(),
+                              openSettings(), closeSettings(), syncEngineHint()
+               Input          resolveInput()
+               Workers        registerSW(), engineUrl()
+               Launching      setBusy(), openBrowser(), closeBrowser(), launch()
+
+
+--------------------------------------------------------------------------------
+12. VERIFICATION TOOLING (in .qa/, gitignored)
+--------------------------------------------------------------------------------
+
+Any UI change should be re-checked with these. They are real headless-browser
+tests, not mocks, except where noted.
+
+  .qa/site-harness.mjs      Stub-DOM harness for the app logic. 64 checks.
+                            Covers presets, themes, engines, transports,
+                            normalisation and reset. Fast.
+  .qa/visual.mjs            Overflow, clipping, overlap, touch targets,
+                            contrast, and axe-core WCAG A/AA - at 1440px and
+                            390px, in all seven themes, drawer open and closed.
+                            61 checks locally.
+  .qa/themes-audit.mjs      Per-theme audit: every select and all options must
+                            be opaque and >= 4.5:1, tokens >= 4.5:1, swatch
+                            previews visually distinct, choice survives reload.
+  .qa/e2e.mjs               Real proxying: loads the site, submits a target,
+                            waits for rendered text. Args:
+                            <url> <transport|fresh> <engine> [target] [expect]
+  .qa/wisp-presets-e2e.mjs  Picks each server preset through the UI and proves
+                            it actually proxies a page. 5/5.
+  .qa/engine-switch.mjs     Switches all three engines mid-session via the
+                            drawer. 13 checks.
+  .qa/perf.mjs              Compositing inventory and frame pacing at 1x/4x/8x
+                            CPU throttle. Requires --disable-gpu-compositing.
+  .qa/wisp-probe.mjs        Protocol-level check of a Wisp endpoint: handshake
+                            plus a real HTTP relay.
+  .qa/pages-mimic.mjs       Serves docs/ under /keystone/ on port 8123, the way
+                            GitHub Pages does. Needed for local testing.
+  .qa/contrast.mjs          Static WCAG contrast maths for candidate palettes.
+
+  To run locally: start pages-mimic.mjs, then run the others against
+  http://127.0.0.1:8123/keystone/.
+
+
+--------------------------------------------------------------------------------
+13. HONEST LIMITATIONS - DO NOT PAPER OVER THESE
+--------------------------------------------------------------------------------
+
+13.1 GitHub Pages cannot run a Wisp server. The static site is entirely
+     dependent on someone else's endpoint. That is why the server picker exists,
+     and why the site defaults to a shared public demo server.
+
+13.2 The public servers are shared, unaffiliated and rate-limited. Under load
+     they throttle or refuse. They can disappear without notice.
+
+13.3 Through shared datacenter IPs:
+       Wikipedia and GitHub render on all three engines.
+       YouTube loads only its shell.
+       Reddit and Google return bot walls.
+     These are the destinations' policies, not defects in this UI.
+
+13.4 Keystone (the built-in engine) does not emulate JavaScript. It rewrites
+     HTML and CSS only, so JavaScript-driven sites do not work through it. The
+     settings hint states this.
+
+13.5 Libcurl transport is experimental and renders some sites blank.
+
+13.6 "Lightspeed" is a school content FILTER, not a proxy engine. It cannot be
+     added as an engine option. This was asked for and declined for that reason.
+
+
+--------------------------------------------------------------------------------
+14. SUGGESTED IMPROVEMENTS, RANKED
+--------------------------------------------------------------------------------
+
+If you are an AI being handed this document to improve the UI, these are the
+gaps I would attack first. None of them require breaking the constraints in
+section 2.
+
+  1. In-surface navigation. The browsing surface has no back/forward for the
+     proxied site and no way to run more than one session. A tab strip, or at
+     minimum frame-history back/forward, would be the biggest UX win.
+
+  2. A real server health indicator. The connection pill reports configuration,
+     not liveness. A background WebSocket handshake with a latency number would
+     make the server picker far more useful, and would let the site demote a
+     dead preset automatically.
+
+  3. Focus management in the drawer. It is not a focus trap, and the theme
+     swatches do not support arrow keys. Both are contained, well-understood
+     fixes.
+
+  4. Mobile pass on the browsing surface. The toolbar is cramped at 390px and
+     the proxied iframe has never been tested on real hardware.
+
+  5. Empty and error states. Errors currently surface as one sentence under the
+     search box. A richer inline state - what failed, which server, what to try
+     next, a one-click switch to another server - would help a lot given how
+     often public endpoints misbehave.
+
+  6. Quick-link chips that reflect reality. Reddit and YouTube are unlikely to
+     work through shared servers; either swap them for destinations that do, or
+     label them.
+
+  7. Keyboard shortcut discoverability. Enter submits the search, Escape closes
+     the drawer or leaves the browsing surface, and "/" focuses the search box.
+     Nothing tells the user any of that, and there is no shortcut hint anywhere
+     in the UI. A small "press / to search" affordance in the empty search box
+     would cost almost nothing.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

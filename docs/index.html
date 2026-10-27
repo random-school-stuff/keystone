@@ -2094,15 +2094,20 @@
 					<div class="select-wrap">
 						<select id="proxy-select">
 							<option value="mist">Mist Services (default)</option>
+							<option value="freewisp">FreeWisp</option>
+							<option value="terbium">Terbium</option>
+							<option value="anura">Anura</option>
+							<option value="reeyuki">Reeyuki</option>
 							<option value="custom">Custom server&hellip;</option>
 						</select>
 						<svg viewBox="0 0 24 24" aria-hidden="true">
 							<path d="m7 10 5 5 5-5" />
 						</svg>
 					</div>
-					<p class="hint">
-						Which Wisp server relays your traffic. Only servers that actually
-						answer are listed, so add your own under Custom.
+					<p class="hint" id="proxy-hint">
+						Which Wisp server relays your traffic. Every server listed here
+						answered a real request when it was added. They are run by other
+						people, not by Keystone, and each sets its own limits and rules.
 					</p>
 				</div>
 
@@ -2327,6 +2332,10 @@
 				var proxyEngineSelect = $("#proxy-engine-select");
 				var engineHint = $("#engine-hint");
 				var proxySelect = $("#proxy-select");
+				var proxyHint = $("#proxy-hint");
+				// The generic wording, restored whenever the choice is not a
+				// preset (custom address or the self-hosted option).
+				var proxyHintDefault = proxyHint ? proxyHint.textContent : "";
 				var transportSelect = $("#transport-select");
 				var wispInput = $("#wisp-input");
 				var wispTest = $("#wisp-test");
@@ -2338,11 +2347,42 @@
 					new URL("baremux/worker.js", location.href).href
 				);
 
-				/* Preset proxy servers. Only endpoints that actually answer are
-				   listed; anything else belongs under "Custom server". */
+				/* Preset proxy servers.
+				   Every endpoint here completed a real Wisp handshake *and*
+				   relayed an HTTP response when it was added. A host that merely
+				   accepts the WebSocket is not enough: several do, and then never
+				   speak the protocol. They are community servers, not affiliated
+				   with Keystone, each with its own limits and policy, and any of
+				   them can disappear — which is why "Custom server" exists.
+				   Re-check a URL with `node .qa/wisp-probe.mjs <url>` before
+				   trusting it, and note that normalizeWisp() maps a bare host to
+				   /wisp/, so both the root and /wisp/ path must be tried. */
 				var PRESETS = {
-					mist: { label: "Mist Services", url: "wss://wisp.mercurywork.shop/" },
-					local: { label: "This site's server", url: "" },
+					mist: {
+						label: "Mist Services",
+						url: "wss://wisp.mercurywork.shop/",
+						note: "The shared demo server this site defaults to. Busy at peak times.",
+					},
+					freewisp: {
+						label: "FreeWisp",
+						url: "wss://wisp.freewisp.org/",
+						note: "Speaks wisp v1 and v2. TCP only, on ports 22, 80, 443, 8080 and 8443, and no UDP, so some sites will not load. Per-IP session and data caps.",
+					},
+					terbium: {
+						label: "Terbium",
+						url: "wss://wisp.terbiumon.top/wisp/",
+						note: "The endpoint Terbium OS ships as its default server.",
+					},
+					anura: {
+						label: "Anura",
+						url: "wss://anura.pro/",
+						note: "Public endpoint operated alongside the Anura proxy.",
+					},
+					reeyuki: {
+						label: "Reeyuki",
+						url: "wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/",
+						note: "Small community server on a free Koyeb instance, so expect it to be the first to go down.",
+					},
 				};
 
 				var activeWisp = null;
@@ -2781,6 +2821,27 @@
 				   Settings drawer
 				   ------------------------------------------------------------- */
 
+				/** Which preset, if any, a normalized Wisp URL belongs to. */
+				function presetFor(wispUrl) {
+					for (var key in PRESETS) {
+						if (!Object.prototype.hasOwnProperty.call(PRESETS, key)) continue;
+						if (wispUrl === normalizeWisp(PRESETS[key].url)) return key;
+					}
+					return "";
+				}
+
+				/**
+				 * Keep the note under the Server dropdown in step with the choice.
+				 * Presets differ in ways that matter — FreeWisp, for instance, is
+				 * TCP-only on five ports — so the limits belong next to the picker
+				 * rather than buried in the docs.
+				 */
+				function syncProxyHint() {
+					if (!proxyHint) return;
+					var preset = PRESETS[proxySelect.value];
+					proxyHint.textContent = preset ? preset.note : proxyHintDefault;
+				}
+
 				/** Show the saved server and reflect it in the preset dropdown. */
 				function syncProxyFields() {
 					var saved = read(STORAGE.wisp, "");
@@ -2796,20 +2857,22 @@
 					if (!normalized) {
 						proxySelect.value = "custom";
 						wispInput.value = "";
-					} else if (normalized === normalizeWisp(PRESETS.mist.url)) {
-						proxySelect.value = "mist";
-						wispInput.value = normalized;
-					} else if (
-						proxySelect.querySelector('option[value="local"]') &&
-						normalized === normalizeWisp(localWispUrl())
-					) {
-						proxySelect.value = "local";
-						wispInput.value = normalized;
 					} else {
-						proxySelect.value = "custom";
+						var preset = presetFor(normalized);
+						if (preset) {
+							proxySelect.value = preset;
+						} else if (
+							proxySelect.querySelector('option[value="local"]') &&
+							normalized === normalizeWisp(localWispUrl())
+						) {
+							proxySelect.value = "local";
+						} else {
+							proxySelect.value = "custom";
+						}
 						wispInput.value = normalized;
 					}
 
+					syncProxyHint();
 					wispInput.dataset.invalid = "false";
 				}
 
@@ -2857,11 +2920,13 @@
 				settingsBackdrop.addEventListener("click", closeSettings);
 
 				proxySelect.addEventListener("change", function () {
-					if (proxySelect.value === "mist") {
-						wispInput.value = normalizeWisp(PRESETS.mist.url);
+					var preset = PRESETS[proxySelect.value];
+					if (preset) {
+						wispInput.value = normalizeWisp(preset.url);
 					} else if (proxySelect.value === "local") {
 						wispInput.value = localWispUrl();
 					}
+					syncProxyHint();
 					wispInput.dataset.invalid = "false";
 					wispResult.hidden = true;
 				});
@@ -2878,6 +2943,7 @@
 				wispInput.addEventListener("input", function () {
 					if (proxySelect.value !== "custom") {
 						proxySelect.value = "custom";
+						syncProxyHint();
 					}
 					wispInput.dataset.invalid = "false";
 				});
@@ -2926,11 +2992,13 @@
 
 					write(STORAGE.engine, engineSelect.value);
 					write(STORAGE.proxyEngine, proxyEngineSelect.value);
-					// Store the preset as a blank override so DEFAULT_WISP keeps
-					// working if the default ever changes.
+					// Store the default preset as a blank override so DEFAULT_WISP
+					// keeps working if the default ever changes. Other presets are
+					// stored by URL, so editing this list cannot silently move a
+					// visitor onto a different server.
 					write(
 						STORAGE.wisp,
-						url && url === normalizeWisp(PRESETS.mist.url) ? "" : url
+						url && url === normalizeWisp(DEFAULT_WISP) ? "" : url
 					);
 					write(STORAGE.transport, transportSelect.value);
 					searchEngine.value = engineSelect.value || DEFAULT_ENGINE;

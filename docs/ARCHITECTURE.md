@@ -433,10 +433,24 @@ The drawer's **Server** dropdown offers a small set of presets instead of asking
 | Preset | Endpoint | Offered when |
 |--------|----------|--------------|
 | Mist Services | `wss://wisp.mercurywork.shop/` | Always. This is the same value as `DEFAULT_WISP`. |
+| FreeWisp | `wss://wisp.freewisp.org/` | Always |
+| Terbium | `wss://wisp.terbiumon.top/wisp/` | Always |
+| Anura | `wss://anura.pro/` | Always |
+| Reeyuki | `wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/` | Always |
 | This site's own server | same-origin `/wisp/` | Only where a Wisp server could actually run |
 | Custom server… | whatever is typed | Always |
 
-Saving a preset writes an empty `keystone.wisp`, so `DEFAULT_WISP` keeps governing and the preset stays correct if the default ever changes.
+**A preset is only listed after it has been proven to work.** Accepting the WebSocket is not proof: `wss://racialequityleadership.com/ws` and `wss://wisp.rhw.one/wisp/` both complete the upgrade and then never speak the protocol, so a naive connectivity check would have listed them. Each entry here completed a real handshake *and* relayed an HTTP response. `.qa/wisp-probe.mjs` performs that check — it opens the socket with the `wisp-v2` subprotocol, falls back to v1, waits for the stream-0 handshake, replies to INFO, sends a CONNECT, and requires a response body back:
+
+```bash
+node .qa/wisp-probe.mjs wss://wisp.freewisp.org/
+```
+
+Two details make the probe trustworthy. A TCP connect to port 443 returns nothing until the client speaks TLS, so waiting for a ServerHello without sending a ClientHello is indistinguishable from a dead endpoint; the probe uses plain HTTP on port 80 instead. And the INFO payload is `major_ver + minor_ver +` a bare concatenation of extension records with **no overall length prefix**, so one extra byte is parsed as the first extension id and the server drops the connection.
+
+Because these are third-party community servers, each carries a note shown under the dropdown by `syncProxyHint()`. The differences are not cosmetic: FreeWisp is TCP-only on ports 22, 80, 443, 8080 and 8443 with per-IP session and data caps, which is exactly the kind of limit a user needs to know before blaming the site. Any of these endpoints can disappear, which is what "Custom server" is for.
+
+Saving the default preset writes an empty `keystone.wisp`, so `DEFAULT_WISP` keeps governing and the default stays correct if it ever changes. Every other preset is stored by URL, so editing this list cannot silently move an existing visitor onto a different server.
 
 The self-hosted preset is added at runtime by `addLocalPreset()`, not in the markup. GitHub Pages, Netlify, Vercel, Cloudflare Pages and Surge serve files only, so a same-origin `/wisp/` can never exist there; listing the option would give people a choice that is guaranteed to fail. The check is a hostname suffix match:
 

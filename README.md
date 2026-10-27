@@ -29,6 +29,8 @@ Seven themes ship in the page, all defined as token blocks in one stylesheet. Th
 
 Pick one in **Settings → Appearance**. The choice applies immediately, is remembered per browser, and every theme is verified at 4.5:1 contrast or better for body, muted and accent text. The header logo and favicon are generated from `Logo/logo.png` by `npm run build:logo`.
 
+`UI-REFERENCE.txt` is a complete tour of the interface — every screen, control, setting, stored key and known gap — written as a handoff for another developer or AI working on the UI.
+
 ## Proxy engines
 
 Three interchangeable engines are selectable in settings. Each is a separate service worker under its own path, and only the selected one is downloaded.
@@ -115,6 +117,28 @@ var DEFAULT_WISP = "wss://your-server.example.com/wisp/";
 
 The value shipped in the repo is `wss://wisp.mercurywork.shop/`. That is a **public demo endpoint** shared with other people, meant for trying the page out. It is not sized or intended for real use. Run your own server for anything beyond a test; see Option B below.
 
+### Available servers
+
+The settings drawer ships with five selectable endpoints, plus "Custom server" for anything else. Each was verified by completing a real Wisp handshake and relaying an HTTP response, not merely by accepting the WebSocket:
+
+| Preset | Endpoint | Notes |
+|---|---|---|
+| Mist Services | `wss://wisp.mercurywork.shop/` | Default. The shared demo server. |
+| FreeWisp | `wss://wisp.freewisp.org/` | wisp v1 + v2. TCP only, ports 22/80/443/8080/8443, no UDP. Per-IP session and data caps. |
+| Terbium | `wss://wisp.terbiumon.top/wisp/` | The endpoint Terbium OS ships as its default. |
+| Anura | `wss://anura.pro/` | Public endpoint run alongside the Anura proxy. |
+| Reeyuki | `wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/` | Small community server on a free Koyeb instance. |
+
+All of these are run by other people, not by Keystone, and each sets its own limits and policy. They can go away without notice, which is why "Custom server" exists.
+
+To check an endpoint yourself before trusting it:
+
+```bash
+node .qa/wisp-probe.mjs wss://wisp.freewisp.org/
+```
+
+It performs the full protocol exchange rather than just the upgrade, because several hosts accept the WebSocket and then never speak Wisp.
+
 The endpoint is resolved in this order:
 
 1. The `?wisp=` query parameter, so `.../keystone/?wisp=wss://host/wisp/` overrides everything.
@@ -192,6 +216,7 @@ Without Docker, `deploy/keystone.service` is a hardened systemd unit that runs t
 | Path | Contents |
 |---|---|
 | `docs/index.html` | The GitHub Pages site. Self-contained. |
+| `UI-REFERENCE.txt` | Full tour of the UI: screens, controls, settings, storage keys, known gaps |
 | `docs/logo.png`, `docs/favicon.png`, `docs/apple-touch-icon.png` | Generated from `Logo/logo.png` by `npm run build:logo` |
 | `docs/uv/`, `docs/scram/`, `docs/baremux/`, `docs/epoxy/`, `docs/libcurl/` | Committed engine and transport bundles for the Pages site |
 | `docs/keystone/` | The built-in Keystone engine: config, service worker, runtime shim |
