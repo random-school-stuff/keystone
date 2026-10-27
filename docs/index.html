@@ -12,6 +12,13 @@
 		<meta name="theme-color" content="#07050a" />
 		<link rel="icon" type="image/png" sizes="64x64" href="favicon.png" />
 		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+		<link
+			rel="preload"
+			as="font"
+			type="font/woff2"
+			href="fonts/instrument-serif-italic-latin.woff2"
+			crossorigin
+		/>
 
 		<script>
 			/* Apply the saved theme before first paint to avoid a flash. Kept in
@@ -308,6 +315,16 @@
 			*::before,
 			*::after {
 				box-sizing: border-box;
+			}
+
+			/* Display face for the hero wordmark. Bundled with the page so no
+			   third-party font request is made. Only the italic cut is used. */
+			@font-face {
+				font-family: "Instrument Serif";
+				font-style: italic;
+				font-weight: 400;
+				font-display: swap;
+				src: url("fonts/instrument-serif-italic-latin.woff2") format("woff2");
 			}
 
 			[hidden] {
@@ -674,10 +691,15 @@
 
 			.title {
 				margin: 0;
-				font-size: clamp(2.6rem, 6.8vw, 4.7rem);
-				font-weight: 760;
-				line-height: 1.02;
-				letter-spacing: -0.045em;
+				font-family:
+					"Instrument Serif", "Iowan Old Style", "Palatino Linotype",
+					Palatino, Georgia, serif;
+				font-style: italic;
+				font-size: clamp(3.4rem, 9vw, 6.2rem);
+				font-weight: 400;
+				line-height: 1.04;
+				letter-spacing: -0.01em;
+				padding-right: 0.06em;
 			}
 
 			.title-accent {
@@ -1803,8 +1825,7 @@
 				</p>
 
 				<h1 class="title">
-					The web,<br />
-					<span class="title-accent">unlocked.</span>
+					<span class="title-accent">Keystone</span>
 				</h1>
 
 				<p class="subtitle">

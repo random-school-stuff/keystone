@@ -2,6 +2,16 @@
    Keystone
    ========================================================================== */
 
+/* Display face for the hero wordmark. Bundled locally so the page makes no
+   third-party font request. Only the italic cut is used. */
+@font-face {
+	font-family: "Instrument Serif";
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url("fonts/instrument-serif-italic-latin.woff2") format("woff2");
+}
+
 :root {
 	--bg: #07080d;
 	--bg-elev: #0c0e16;
@@ -332,10 +342,15 @@ html[data-theme="light"] .icon-sun {
 
 .title {
 	margin: 0;
-	font-size: clamp(2.5rem, 6.4vw, 4.4rem);
-	font-weight: 700;
+	font-family:
+		"Instrument Serif", "Iowan Old Style", "Palatino Linotype", Palatino,
+		Georgia, serif;
+	font-style: italic;
+	font-size: clamp(3.4rem, 9vw, 6.2rem);
+	font-weight: 400;
 	line-height: 1.04;
-	letter-spacing: -0.038em;
+	letter-spacing: -0.01em;
+	padding-right: 0.06em;
 }
 
 .title-accent {
