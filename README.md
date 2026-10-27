@@ -11,7 +11,23 @@ The static site cannot proxy anything by itself. It is a browser page; the netwo
 
 ## What it does
 
-You type a URL or a search query. A service worker in your browser rewrites and fetches the page for you, so the site you visit sees the proxy server's address, not yours. The interface has a search box, a settings drawer (proxy engine, proxy server, transport, search engine), a light/dark theme toggle, and a connection status pill in the top bar.
+You type a URL or a search query. A service worker in your browser rewrites and fetches the page for you, so the site you visit sees the proxy server's address, not yours. The interface has a search box, a settings drawer (theme, proxy engine, proxy server, transport, search engine), a quick theme toggle, and a connection status pill in the top bar.
+
+## Themes
+
+Seven themes ship in the page, all defined as token blocks in one stylesheet. The default, **Ember**, is built from the logo's amber-to-ember palette. **Indigo** is the blue/teal scheme the site used before, kept selectable.
+
+| Theme | Scheme | Notes |
+|---|---|---|
+| Ember | dark | Default. Amber and ember, taken from the logo |
+| Daylight | light | Warm white |
+| Indigo | dark | The original blue/teal scheme |
+| Neon | dark | Magenta and cyan on deep violet |
+| Forest | dark | Green |
+| Candy | light | Pink |
+| Sepia | light | Cream paper |
+
+Pick one in **Settings → Appearance**. The choice applies immediately, is remembered per browser, and every theme is verified at 4.5:1 contrast or better for body, muted and accent text. The header logo and favicon are generated from `Logo/logo.png` by `npm run build:logo`.
 
 ## Proxy engines
 
@@ -176,13 +192,16 @@ Without Docker, `deploy/keystone.service` is a hardened systemd unit that runs t
 | Path | Contents |
 |---|---|
 | `docs/index.html` | The GitHub Pages site. Self-contained. |
+| `docs/logo.png`, `docs/favicon.png`, `docs/apple-touch-icon.png` | Generated from `Logo/logo.png` by `npm run build:logo` |
 | `docs/uv/`, `docs/scram/`, `docs/baremux/`, `docs/epoxy/`, `docs/libcurl/` | Committed engine and transport bundles for the Pages site |
 | `docs/keystone/` | The built-in Keystone engine: config, service worker, runtime shim |
 | `docs/transports/libcurl.mjs` | Adapter that normalizes the header shape bare-mux passes to libcurl |
+| `Logo/logo.png` | Source artwork for the brand mark and icons |
 | `public/` | The Node app's page and its generated engine bundles |
 | `src/index.js` | Node server: static files, `/wisp/` upgrade, `/healthz` |
 | `scripts/build.mjs` | Vendors bundles into `public/` |
 | `scripts/build-site.mjs` | Vendors bundles into `docs/` |
+| `scripts/build-logo.mjs` | Crops and downsamples the logo into the three served PNGs |
 | `deploy/` | Caddyfile, Oracle host setup script, systemd unit |
 
 ## Configuration

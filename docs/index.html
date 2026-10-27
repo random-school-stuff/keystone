@@ -9,39 +9,155 @@
 			content="Keystone is a fast web proxy. Search or open any address in a sandboxed session."
 		/>
 		<meta name="robots" content="noindex, nofollow" />
-		<meta name="theme-color" content="#05060b" />
-		<link
-			rel="icon"
-			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%237c8cff'/%3E%3Cstop offset='100%25' stop-color='%2338e8c8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='13' fill='url(%23g)'/%3E%3Cpath d='M14 14h20l-3.6 20H17.6L14 14Z' fill='%23070810' fill-opacity='.85'/%3E%3Cpath d='M19.5 20h9' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E"
-		/>
+		<meta name="theme-color" content="#07050a" />
+		<link rel="icon" type="image/png" sizes="64x64" href="favicon.png" />
+		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
 		<script>
-			/* Apply the saved theme before first paint to avoid a flash. */
-			try {
-				var saved = localStorage.getItem("keystone.theme");
-				if (saved === "light" || saved === "dark") {
-					document.documentElement.dataset.theme = saved;
-				} else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-					document.documentElement.dataset.theme = "light";
-				}
-			} catch (e) {}
+			/* Apply the saved theme before first paint to avoid a flash. Kept in
+			   an IIFE so its palette table does not leak into the global scope
+			   where the app below defines the authoritative one. */
+			(function () {
+				try {
+					var themes = {
+						dark: { scheme: "dark", color: "#07050a" },
+						light: { scheme: "light", color: "#fbf8f5" },
+						indigo: { scheme: "dark", color: "#05060b" },
+						neon: { scheme: "dark", color: "#06030f" },
+						forest: { scheme: "dark", color: "#040f0a" },
+						candy: { scheme: "light", color: "#fdf3fa" },
+						sepia: { scheme: "light", color: "#f2e9d8" }
+					};
+					var saved = localStorage.getItem("keystone.theme");
+					var name = themes[saved]
+						? saved
+						: window.matchMedia("(prefers-color-scheme: light)").matches
+							? "light"
+							: "dark";
+					var root = document.documentElement;
+					root.dataset.theme = name;
+					root.dataset.scheme = themes[name].scheme;
+					document
+						.querySelector('meta[name="theme-color"]')
+						.setAttribute("content", themes[name].color);
+				} catch (e) {}
+			})();
 		</script>
 
 		<style>
-			:root {
+			/* ---------------------------------------------------------------
+			   Themes
+
+			   Every theme defines the same token set, so adding one is a block
+			   of variables and nothing else. `color-scheme` is declared per
+			   theme because it is what tells the browser how to paint native
+			   UI: the <select> popup list, scrollbars, and focus rings. Without
+			   it the popup renders on the browser's own surface, which is the
+			   opposite of ours, and the option text disappears into it.
+
+			   The blocks are keyed on `[data-theme]` rather than
+			   `html[data-theme]` so a theme swatch in the settings drawer can
+			   carry the same attribute and paint its own preview from the real
+			   palette instead of a hand-copied set of colours.
+
+			   The default palette is drawn from the logo in Logo/logo.png: the
+			   mark is an amber-to-ember gradient, so the accent trio is the
+			   logo's own amber (#f5891e), its peach highlight (#f6c687), and
+			   its deep ember (#e0501f). Indigo is the blue/teal scheme the site
+			   shipped with before, kept so it can still be selected.
+			   --------------------------------------------------------------- */
+			:root,
+			[data-theme="dark"] {
+				color-scheme: dark;
+
+				--bg: #07050a;
+				--bg-soft: #0c0910;
+				--bg-elev: #100b12;
+				--text: #f8f3ee;
+				--text-dim: #b8a99c;
+				/* Muted text is used at 0.72rem bold and as placeholder copy, which
+				   is below the 18.66px bold threshold for "large text", so it needs
+				   a full 4.5:1 against --bg-elev and against --field-bg. */
+				--text-faint: #94857a;
+				--line: rgba(255, 208, 170, 0.1);
+				--line-strong: rgba(255, 208, 170, 0.2);
+				--surface: rgba(255, 255, 255, 0.04);
+				--surface-hover: rgba(255, 255, 255, 0.075);
+				/* Inputs and the <select> popup need an opaque fill. --surface is
+				   nearly transparent, and a transparent option background makes
+				   the popup fall back to the browser's white surface with our
+				   near-white text on top, which is unreadable. */
+				--field-bg: #1a1218;
+				--accent: #f5891e;
+				--accent-2: #f6c687;
+				--accent-3: #e0501f;
+				--glow: rgba(245, 137, 30, 0.32);
+				--danger: #ff9b8a;
+				--warn: #ffd166;
+				--ok: #6ee7a8;
+				--shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.95);
+
+				/* Background wash and orbs, so a theme changes the whole room
+				   rather than only the controls. */
+				--glow-a: rgba(245, 137, 30, 0.15);
+				--glow-b: rgba(224, 80, 31, 0.12);
+				--glow-c: rgba(246, 198, 135, 0.09);
+				--orb-a: rgba(245, 137, 30, 0.5);
+				--orb-b: rgba(224, 80, 31, 0.42);
+				--orb-c: rgba(246, 198, 135, 0.3);
+				--orb-opacity: 0.5;
+
+				--ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+			}
+
+			[data-theme="light"] {
+				color-scheme: light;
+
+				--bg: #fbf8f5;
+				--bg-soft: #f5efea;
+				--bg-elev: #ffffff;
+				--text: #1a1208;
+				--text-dim: #6b5a4a;
+				--text-faint: #6d5c4b;
+				--line: rgba(40, 25, 10, 0.12);
+				--line-strong: rgba(40, 25, 10, 0.24);
+				--surface: rgba(255, 255, 255, 0.72);
+				--surface-hover: #ffffff;
+				--field-bg: #f6efe8;
+				/* Darkened from the logo's amber: a mid orange does not reach
+				   4.5:1 as text on this background. */
+				--accent: #a8500a;
+				--accent-2: #d9741a;
+				--accent-3: #8a3b06;
+				--glow: rgba(168, 80, 10, 0.22);
+				--danger: #b42318;
+				--warn: #8a6100;
+				--ok: #0f7a4f;
+				--shadow: 0 30px 80px -44px rgba(60, 35, 15, 0.35);
+
+				--glow-a: rgba(245, 160, 70, 0.28);
+				--glow-b: rgba(224, 110, 45, 0.18);
+				--glow-c: rgba(246, 198, 135, 0.22);
+				--orb-a: rgba(245, 150, 60, 0.4);
+				--orb-b: rgba(224, 100, 40, 0.32);
+				--orb-c: rgba(246, 190, 130, 0.36);
+				--orb-opacity: 0.3;
+			}
+
+			[data-theme="indigo"] {
+				color-scheme: dark;
+
 				--bg: #05060b;
 				--bg-soft: #0a0c14;
 				--bg-elev: #0b0d17;
 				--text: #f2f4fb;
 				--text-dim: #98a2b8;
-				/* Muted text is used at 0.72rem bold and as placeholder copy, which
-				   is below the 18.66px bold threshold for "large text", so it needs
-				   a full 4.5:1 against --bg-elev. #6b768c measured 4.24:1. */
 				--text-faint: #7b8699;
 				--line: rgba(255, 255, 255, 0.08);
 				--line-strong: rgba(255, 255, 255, 0.16);
 				--surface: rgba(255, 255, 255, 0.038);
 				--surface-hover: rgba(255, 255, 255, 0.07);
+				--field-bg: #12141f;
 				--accent: #7c8cff;
 				--accent-2: #38e8c8;
 				--accent-3: #b47cff;
@@ -50,29 +166,142 @@
 				--warn: #ffcf7a;
 				--ok: #4ade9b;
 				--shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.95);
-				--ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+				--glow-a: rgba(124, 140, 255, 0.16);
+				--glow-b: rgba(56, 232, 200, 0.1);
+				--glow-c: rgba(180, 124, 255, 0.1);
+				--orb-a: rgba(93, 109, 255, 0.55);
+				--orb-b: rgba(35, 211, 180, 0.4);
+				--orb-c: rgba(165, 99, 255, 0.3);
+				--orb-opacity: 0.5;
 			}
 
-			html[data-theme="light"] {
-				--bg: #f6f8fd;
-				--bg-soft: #eef1fa;
+			[data-theme="neon"] {
+				color-scheme: dark;
+
+				--bg: #06030f;
+				--bg-soft: #0a0518;
+				--bg-elev: #0f0824;
+				--text: #f6f1ff;
+				--text-dim: #bcacdf;
+				--text-faint: #a496cc;
+				--line: rgba(255, 120, 240, 0.16);
+				--line-strong: rgba(255, 120, 240, 0.3);
+				--surface: rgba(255, 255, 255, 0.05);
+				--surface-hover: rgba(255, 255, 255, 0.09);
+				--field-bg: #160c33;
+				--accent: #ff4fd8;
+				--accent-2: #22f5d5;
+				--accent-3: #a855f7;
+				--glow: rgba(255, 79, 216, 0.32);
+				--danger: #ff7a9c;
+				--warn: #ffd166;
+				--ok: #22f5d5;
+				--shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.95);
+
+				--glow-a: rgba(255, 79, 216, 0.18);
+				--glow-b: rgba(34, 245, 213, 0.14);
+				--glow-c: rgba(168, 85, 247, 0.16);
+				--orb-a: rgba(255, 79, 216, 0.5);
+				--orb-b: rgba(34, 245, 213, 0.4);
+				--orb-c: rgba(168, 85, 247, 0.45);
+				--orb-opacity: 0.45;
+			}
+
+			[data-theme="forest"] {
+				color-scheme: dark;
+
+				--bg: #040f0a;
+				--bg-soft: #061410;
+				--bg-elev: #08190f;
+				--text: #eafaf1;
+				--text-dim: #9fc4ae;
+				--text-faint: #8bb59d;
+				--line: rgba(140, 255, 200, 0.14);
+				--line-strong: rgba(140, 255, 200, 0.26);
+				--surface: rgba(255, 255, 255, 0.045);
+				--surface-hover: rgba(255, 255, 255, 0.085);
+				--field-bg: #0c2417;
+				--accent: #3ddc97;
+				--accent-2: #9ae66e;
+				--accent-3: #35c9c0;
+				--glow: rgba(61, 220, 151, 0.28);
+				--danger: #ff9b8a;
+				--warn: #ffd166;
+				--ok: #3ddc97;
+				--shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.95);
+
+				--glow-a: rgba(61, 220, 151, 0.16);
+				--glow-b: rgba(154, 230, 110, 0.12);
+				--glow-c: rgba(53, 201, 192, 0.14);
+				--orb-a: rgba(45, 210, 140, 0.5);
+				--orb-b: rgba(150, 225, 110, 0.36);
+				--orb-c: rgba(50, 195, 190, 0.4);
+				--orb-opacity: 0.4;
+			}
+
+			[data-theme="candy"] {
+				color-scheme: light;
+
+				--bg: #fdf3fa;
+				--bg-soft: #fbe9f5;
 				--bg-elev: #ffffff;
-				--text: #0c111d;
-				--text-dim: #57617a;
-				/* #7b8499 measured 3.75:1 on white, below the 4.5:1 AA floor. */
-				--text-faint: #656d80;
-				--line: rgba(12, 17, 29, 0.1);
-				--line-strong: rgba(12, 17, 29, 0.2);
-				--surface: rgba(255, 255, 255, 0.7);
+				--text: #2b0f24;
+				--text-dim: #6d4a63;
+				--text-faint: #6a4560;
+				--line: rgba(43, 15, 36, 0.12);
+				--line-strong: rgba(43, 15, 36, 0.24);
+				--surface: rgba(255, 255, 255, 0.72);
 				--surface-hover: #ffffff;
-				--accent: #4f5ee8;
-				--accent-2: #0d9f8a;
-				--accent-3: #8b4fd8;
-				--glow: rgba(79, 94, 232, 0.22);
+				--field-bg: #fbeef7;
+				--accent: #c0336f;
+				--accent-2: #7b61ff;
+				--accent-3: #ff8ac0;
+				--glow: rgba(192, 51, 111, 0.22);
 				--danger: #b42318;
 				--warn: #8a6100;
 				--ok: #0f7a4f;
-				--shadow: 0 30px 80px -44px rgba(16, 24, 45, 0.4);
+				--shadow: 0 30px 80px -44px rgba(120, 40, 90, 0.32);
+
+				--glow-a: rgba(255, 140, 190, 0.28);
+				--glow-b: rgba(160, 140, 255, 0.2);
+				--glow-c: rgba(255, 180, 220, 0.22);
+				--orb-a: rgba(255, 140, 190, 0.4);
+				--orb-b: rgba(160, 140, 255, 0.32);
+				--orb-c: rgba(255, 170, 210, 0.36);
+				--orb-opacity: 0.3;
+			}
+
+			[data-theme="sepia"] {
+				color-scheme: light;
+
+				--bg: #f2e9d8;
+				--bg-soft: #ece0c9;
+				--bg-elev: #fffaf0;
+				--text: #2a2118;
+				--text-dim: #6b5a45;
+				--text-faint: #655440;
+				--line: rgba(74, 56, 38, 0.16);
+				--line-strong: rgba(74, 56, 38, 0.28);
+				--surface: rgba(255, 255, 255, 0.66);
+				--surface-hover: #fffdf8;
+				--field-bg: #f0e5d0;
+				--accent: #8f4a14;
+				--accent-2: #6b7f2e;
+				--accent-3: #a8602a;
+				--glow: rgba(143, 74, 20, 0.22);
+				--danger: #9c2a1e;
+				--warn: #7d5a00;
+				--ok: #3f6b2f;
+				--shadow: 0 30px 80px -44px rgba(80, 60, 40, 0.32);
+
+				--glow-a: rgba(214, 160, 110, 0.3);
+				--glow-b: rgba(180, 190, 120, 0.2);
+				--glow-c: rgba(200, 150, 100, 0.22);
+				--orb-a: rgba(220, 170, 110, 0.38);
+				--orb-b: rgba(180, 190, 120, 0.3);
+				--orb-c: rgba(200, 150, 100, 0.34);
+				--orb-opacity: 0.3;
 			}
 
 			*,
@@ -150,32 +379,17 @@
 				background:
 					radial-gradient(
 						ellipse 90% 60% at 50% -20%,
-						rgba(124, 140, 255, 0.16),
+						var(--glow-a),
 						transparent 60%
 					),
 					radial-gradient(
 						ellipse 70% 50% at 85% 15%,
-						rgba(56, 232, 200, 0.1),
+						var(--glow-b),
 						transparent 60%
 					),
 					radial-gradient(
 						ellipse 60% 50% at 10% 80%,
-						rgba(180, 124, 255, 0.1),
-						transparent 60%
-					),
-					var(--bg);
-			}
-
-			html[data-theme="light"] .backdrop {
-				background:
-					radial-gradient(
-						ellipse 90% 60% at 50% -20%,
-						rgba(124, 140, 255, 0.22),
-						transparent 60%
-					),
-					radial-gradient(
-						ellipse 70% 50% at 85% 15%,
-						rgba(56, 200, 180, 0.14),
+						var(--glow-c),
 						transparent 60%
 					),
 					var(--bg);
@@ -213,18 +427,26 @@
 			.orb {
 				position: absolute;
 				border-radius: 50%;
-				opacity: 0.5;
+				opacity: var(--orb-opacity);
 			}
 
+			/*
+			 * Two declarations per orb: the first is a plain single-stop falloff
+			 * for engines without color-mix(), the second re-creates the tighter
+			 * core by fading the same token partway out. Declaring both means an
+			 * unsupported color-mix() is simply ignored rather than blanking the
+			 * gradient.
+			 */
 			.orb-one {
 				width: 720px;
 				height: 720px;
 				top: -320px;
 				left: -260px;
+				background: radial-gradient(circle, var(--orb-a) 0%, transparent 70%);
 				background: radial-gradient(
 					circle,
-					rgba(93, 109, 255, 0.55) 0%,
-					rgba(93, 109, 255, 0.18) 38%,
+					var(--orb-a) 0%,
+					color-mix(in srgb, var(--orb-a) 34%, transparent) 38%,
 					transparent 70%
 				);
 			}
@@ -234,10 +456,11 @@
 				height: 640px;
 				right: -240px;
 				top: 4%;
+				background: radial-gradient(circle, var(--orb-b) 0%, transparent 70%);
 				background: radial-gradient(
 					circle,
-					rgba(35, 211, 180, 0.4) 0%,
-					rgba(35, 211, 180, 0.12) 40%,
+					var(--orb-b) 0%,
+					color-mix(in srgb, var(--orb-b) 30%, transparent) 40%,
 					transparent 70%
 				);
 			}
@@ -247,17 +470,13 @@
 				height: 620px;
 				bottom: -300px;
 				left: 30%;
-				opacity: 0.34;
+				background: radial-gradient(circle, var(--orb-c) 0%, transparent 70%);
 				background: radial-gradient(
 					circle,
-					rgba(165, 99, 255, 0.45) 0%,
-					rgba(165, 99, 255, 0.12) 40%,
+					var(--orb-c) 0%,
+					color-mix(in srgb, var(--orb-c) 27%, transparent) 40%,
 					transparent 70%
 				);
-			}
-
-			html[data-theme="light"] .orb {
-				opacity: 0.3;
 			}
 
 			/* ---------------------------------------------------------------
@@ -296,6 +515,11 @@
 			.brand-mark {
 				width: 34px;
 				height: 34px;
+				/* The mark is a raster PNG, so keep it crisp at fractional zoom
+				   and give it the accent halo the old vector mark had. */
+				display: block;
+				flex: 0 0 auto;
+				object-fit: contain;
 				filter: drop-shadow(0 8px 20px var(--glow));
 			}
 
@@ -401,8 +625,11 @@
 				stroke-linejoin: round;
 			}
 
-			html[data-theme="dark"] .icon-moon,
-			html[data-theme="light"] .icon-sun {
+			/* The toggle shows the icon of the scheme it would switch to. Keyed
+			   on data-scheme, not data-theme, so adding a theme needs no change
+			   here: the theme just declares which side it belongs to. */
+			html[data-scheme="dark"] .icon-moon,
+			html[data-scheme="light"] .icon-sun {
 				display: none;
 			}
 
@@ -931,7 +1158,8 @@
 				text-transform: uppercase;
 			}
 
-			.field label {
+			.field label,
+			.field .field-label {
 				display: block;
 				margin-bottom: 8px;
 				color: var(--text-dim);
@@ -961,13 +1189,17 @@
 			#proxy-engine-select,
 			#proxy-select,
 			#transport-select,
+			#theme-select,
 			#wisp-input {
 				width: 100%;
 				padding: 12px 14px;
 				border: 1px solid var(--line);
 				border-radius: 12px;
 				outline: 0;
-				background: var(--surface);
+				/* A solid fill, not --surface. A translucent field lets the page
+				   wash show through the control and gives the <select> popup an
+				   indeterminate background to inherit. */
+				background: var(--field-bg);
 				color: var(--text);
 				font-size: 0.9rem;
 				transition:
@@ -978,17 +1210,45 @@
 			#engine-select,
 			#proxy-engine-select,
 			#proxy-select,
-			#transport-select {
+			#transport-select,
+			#theme-select {
 				padding-right: 38px;
 				-webkit-appearance: none;
 				appearance: none;
 				cursor: pointer;
 			}
 
+			/*
+			 * The popup list of a native <select> is drawn by the browser, not
+			 * by the page, so the inherited text colour (near-white in every
+			 * dark theme) lands on the browser's own light popup surface. Every
+			 * option therefore gets an explicit opaque pair. Setting them is the
+			 * only cross-browser way to control that popup; `color-scheme` on
+			 * each theme handles the rest of the native chrome.
+			 */
+			#engine-select option,
+			#proxy-engine-select option,
+			#proxy-select option,
+			#transport-select option,
+			#theme-select option {
+				background-color: var(--field-bg);
+				color: var(--text);
+			}
+
+			#engine-select option:checked,
+			#proxy-engine-select option:checked,
+			#proxy-select option:checked,
+			#transport-select option:checked,
+			#theme-select option:checked {
+				background-color: var(--accent);
+				color: var(--bg-elev);
+			}
+
 			#engine-select:focus,
 			#proxy-engine-select:focus,
 			#proxy-select:focus,
 			#transport-select:focus,
+			#theme-select:focus,
 			#wisp-input:focus {
 				border-color: var(--accent);
 				box-shadow: 0 0 0 3px var(--glow);
@@ -1027,6 +1287,87 @@
 			.row {
 				display: flex;
 				gap: 8px;
+			}
+
+			/* ---------------------------------------------------------------
+			   Theme picker
+
+			   Each preview carries its own data-theme, so the swatch paints
+			   from the real token block rather than a hand-copied palette. The
+			   only duplicated value is the label text, which lives in the app.
+			   --------------------------------------------------------------- */
+			.theme-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+				gap: 8px;
+			}
+
+			.theme-swatch {
+				display: flex;
+				flex-direction: column;
+				gap: 7px;
+				padding: 6px;
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				background: var(--surface);
+				color: var(--text-dim);
+				font: inherit;
+				font-size: 0.72rem;
+				font-weight: 640;
+				text-align: left;
+				cursor: pointer;
+				transition:
+					background 0.16s var(--ease),
+					border-color 0.16s var(--ease),
+					box-shadow 0.16s var(--ease);
+			}
+
+			.theme-swatch:hover {
+				background: var(--surface-hover);
+				border-color: var(--line-strong);
+			}
+
+			.theme-swatch[aria-pressed="true"] {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 3px var(--glow);
+				color: var(--text);
+			}
+
+			.theme-preview {
+				position: relative;
+				display: block;
+				height: 38px;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				overflow: hidden;
+				background:
+					radial-gradient(circle at 20% 15%, var(--glow-a), transparent 62%),
+					radial-gradient(circle at 84% 84%, var(--glow-b), transparent 62%),
+					var(--bg);
+			}
+
+			/* A miniature of the real layout: accent dot plus a line of text. */
+			.theme-preview::before {
+				content: "";
+				position: absolute;
+				top: 8px;
+				left: 9px;
+				width: 13px;
+				height: 13px;
+				border-radius: 50%;
+				background: linear-gradient(135deg, var(--accent), var(--accent-2));
+			}
+
+			.theme-preview::after {
+				content: "";
+				position: absolute;
+				right: 9px;
+				bottom: 9px;
+				left: 9px;
+				height: 4px;
+				border-radius: 2px;
+				background: var(--text);
+				opacity: 0.42;
 			}
 
 			.test-button {
@@ -1100,8 +1441,17 @@
 			.drawer-actions {
 				display: flex;
 				gap: 10px;
-				margin-top: auto;
-				padding-top: 8px;
+				/* Sticky, not `margin-top: auto`. With the theme picker the drawer
+				   is taller than a laptop viewport, and Save has to stay reachable
+				   without scrolling to the end. The negative margins let the bar
+				   bleed across the drawer's own padding so content cannot show
+				   through behind it. */
+				position: sticky;
+				bottom: -22px;
+				margin: auto -22px -22px;
+				padding: 14px 22px 22px;
+				border-top: 1px solid var(--line);
+				background: var(--bg-elev);
 			}
 
 			.ghost-button,
@@ -1265,6 +1615,7 @@
 			#proxy-engine-select:focus-visible,
 			#proxy-select:focus-visible,
 			#transport-select:focus-visible,
+			#theme-select:focus-visible,
 			#wisp-input:focus-visible {
 				outline: none;
 			}
@@ -1383,26 +1734,14 @@
 		<div class="shell">
 			<header class="topbar">
 				<a class="brand" href="./" aria-label="Keystone home">
-					<svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
-						<defs>
-							<linearGradient id="brandGradient" x1="0" y1="0" x2="1" y2="1">
-								<stop offset="0%" stop-color="#7c8cff" />
-								<stop offset="100%" stop-color="#38e8c8" />
-							</linearGradient>
-						</defs>
-						<rect width="48" height="48" rx="13" fill="url(#brandGradient)" />
-						<path
-							d="M14 14h20l-3.6 20H17.6L14 14Z"
-							fill="#070810"
-							fill-opacity=".85"
-						/>
-						<path
-							d="M19.5 20h9"
-							stroke="#fff"
-							stroke-width="2.2"
-							stroke-linecap="round"
-						/>
-					</svg>
+					<img
+						class="brand-mark"
+						src="logo.png"
+						width="34"
+						height="34"
+						alt=""
+						decoding="async"
+					/>
 					<span class="brand-name">Keystone</span>
 				</a>
 
@@ -1654,6 +1993,82 @@
 			</div>
 
 			<div class="section">
+				<span class="section-label">Appearance</span>
+
+				<div class="field">
+					<span class="field-label">Theme</span>
+					<div class="theme-grid" id="theme-grid" role="group" aria-label="Theme">
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="dark"
+							aria-pressed="true"
+						>
+							<span class="theme-preview" data-theme="dark" aria-hidden="true"></span>
+							Ember
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="light"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="light" aria-hidden="true"></span>
+							Daylight
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="indigo"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="indigo" aria-hidden="true"></span>
+							Indigo
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="neon"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="neon" aria-hidden="true"></span>
+							Neon
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="forest"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="forest" aria-hidden="true"></span>
+							Forest
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="candy"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="candy" aria-hidden="true"></span>
+							Candy
+						</button>
+						<button
+							class="theme-swatch"
+							type="button"
+							data-theme-name="sepia"
+							aria-pressed="false"
+						>
+							<span class="theme-preview" data-theme="sepia" aria-hidden="true"></span>
+							Sepia
+						</button>
+					</div>
+					<p class="hint">
+						Changes apply immediately and are remembered on this device.
+					</p>
+				</div>
+			</div>
+
+			<div class="section">
 				<span class="section-label">Proxy</span>
 
 				<div class="field">
@@ -1848,6 +2263,20 @@
 			};
 			var DEFAULT_ENGINE = "https://www.google.com/search?q=%s";
 
+			/* Theme names must match the [data-theme="..."] blocks in the
+			   stylesheet and the pre-paint script in <head>. `scheme` drives the
+			   toggle button's icon and `color` is the mobile browser chrome. */
+			var THEMES = {
+				dark: { label: "Ember", scheme: "dark", color: "#07050a" },
+				light: { label: "Daylight", scheme: "light", color: "#fbf8f5" },
+				indigo: { label: "Indigo", scheme: "dark", color: "#05060b" },
+				neon: { label: "Neon", scheme: "dark", color: "#06030f" },
+				forest: { label: "Forest", scheme: "dark", color: "#040f0a" },
+				candy: { label: "Candy", scheme: "light", color: "#fdf3fa" },
+				sepia: { label: "Sepia", scheme: "light", color: "#f2e9d8" },
+			};
+			var DEFAULT_THEME = "dark";
+
 			/* Which proxy engine the page drives. Scramjet is the successor to
 			   Ultraviolet; Keystone is the small engine written in this repo. */
 			var DEFAULT_PROXY_ENGINE = "scramjet";
@@ -1887,6 +2316,7 @@
 				var browserLoading = $("#browser-loading");
 
 				var themeToggle = $("#theme-toggle");
+				var themeSwatches = document.querySelectorAll(".theme-swatch");
 				var settingsToggle = $("#settings-toggle");
 				var settingsPanel = $("#settings");
 				var settingsBackdrop = $("#drawer-backdrop");
@@ -2306,29 +2736,45 @@
 				   ------------------------------------------------------------- */
 
 				function setTheme(theme) {
-					document.documentElement.dataset.theme = theme;
-					write(STORAGE.theme, theme);
+					var meta = THEMES[theme] || THEMES[DEFAULT_THEME];
+					var name = THEMES[theme] ? theme : DEFAULT_THEME;
+
+					document.documentElement.dataset.theme = name;
+					/* The toggle's icon is chosen from the scheme rather than the
+					   theme name, so adding a theme needs no CSS change. */
+					document.documentElement.dataset.scheme = meta.scheme;
+					write(STORAGE.theme, name);
+
 					themeToggle.setAttribute(
 						"aria-label",
-						theme === "light"
+						meta.scheme === "light"
 							? "Switch to dark theme"
 							: "Switch to light theme"
 					);
-					var meta = document.querySelector('meta[name="theme-color"]');
-					if (meta) {
-						meta.setAttribute(
-							"content",
-							theme === "light" ? "#f6f8fd" : "#05060b"
+
+					var tag = document.querySelector('meta[name="theme-color"]');
+					if (tag) tag.setAttribute("content", meta.color);
+
+					for (var i = 0; i < themeSwatches.length; i++) {
+						var swatch = themeSwatches[i];
+						swatch.setAttribute(
+							"aria-pressed",
+							String(swatch.dataset.themeName === name)
 						);
 					}
 				}
 
+				for (var s = 0; s < themeSwatches.length; s++) {
+					themeSwatches[s].addEventListener("click", function () {
+						setTheme(this.dataset.themeName);
+					});
+				}
+
 				themeToggle.addEventListener("click", function () {
-					setTheme(
-						document.documentElement.dataset.theme === "light"
-							? "dark"
-							: "light"
-					);
+					/* Flips between the two neutral schemes. The full set lives in
+					   the settings drawer. */
+					var current = THEMES[document.documentElement.dataset.theme];
+					setTheme(current && current.scheme === "light" ? "dark" : "light");
 				});
 
 				/* -------------------------------------------------------------
@@ -2510,6 +2956,10 @@
 					activeTransport = null;
 					activeEngine = null;
 					scramFrame = null;
+					// The theme is stored apart from the proxy settings but Reset
+					// restores it too, otherwise "Reset" would leave one setting
+					// behind and the swatches would disagree with the page.
+					setTheme(DEFAULT_THEME);
 					syncProxyFields();
 					// Reset changes the selected engine, so the hint below the
 					// dropdown has to be refreshed too or it keeps describing the
@@ -2894,11 +3344,11 @@
 
 				var savedTheme = read(STORAGE.theme, "");
 				setTheme(
-					savedTheme === "light" || savedTheme === "dark"
+					THEMES[savedTheme]
 						? savedTheme
 						: window.matchMedia("(prefers-color-scheme: light)").matches
 							? "light"
-							: "dark"
+							: DEFAULT_THEME
 				);
 
 				refreshConn();

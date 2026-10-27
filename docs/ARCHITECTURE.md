@@ -684,13 +684,45 @@ Pages site, by page and browser storage:
 | `keystone.wisp` | `localStorage`, written by the settings drawer | Per-browser override |
 | `?wisp=` | Query string | Per-link override, highest priority |
 | `keystone.engine` | `localStorage` | Search engine template |
-| `keystone.theme` | `localStorage` | Light or dark theme |
+| `keystone.theme` | `localStorage` | Theme name: `dark` (Ember, default), `light`, `indigo`, `neon`, `forest`, `candy`, or `sepia`. Absent or unrecognised falls back to the OS preference, then to `dark` |
 | `keystone.transport` | `localStorage` | `epoxy` or `libcurl` |
 | `keystone.proxyEngine` | `localStorage` | `scramjet` (default), `ultraviolet`, or `keystone`. Absent or unrecognised falls back to `scramjet`; reset clears it. |
 
 ---
 
-## 12. Why there are no blur filters
+## 12. Theming
+
+Seven themes ship in one stylesheet. Each is a single `[data-theme="<name>"]` block that redefines the same token set and nothing else, so adding a theme is a block of variables.
+
+Three things about the implementation are not obvious and are easy to break:
+
+**`color-scheme` is per theme, not global.** It is what tells the browser how to paint native UI it owns rather than the page: the `<select>` popup list, scrollbars, focus rings. Without it a dark theme's popup renders on the browser's light surface.
+
+**`<option>` needs an explicit opaque background.** The popup is drawn by the browser, so the near-white `color` inherited from a dark theme lands on the browser's own white surface. This was a live bug: every option measured `rgb(242,244,251)` text on `rgba(0,0,0,0)`, which is white-on-white. Options now set both `background-color: var(--field-bg)` and `color: var(--text)`, and inputs use `--field-bg` rather than the translucent `--surface`.
+
+**The blocks are keyed on `[data-theme]`, not `html[data-theme]`.** A theme swatch in the settings drawer carries its own `data-theme`, so each preview paints from the real palette instead of a hand-copied one. Adding a theme cannot leave a swatch showing stale colours.
+
+The toggle button is driven by `data-scheme` (`dark` or `light`), which `setTheme()` sets alongside `data-theme`. That is why the toggle icon needs no per-theme CSS.
+
+Every theme is checked for a 4.5:1 minimum on `--text`, `--text-dim`, `--text-faint` and `--accent` against both `--bg-elev` and `--field-bg`, in `.qa/contrast.mjs` statically and again in a real browser by `.qa/themes-audit.mjs` and `.qa/visual.mjs`. `--text-faint` is the tightest constraint: it is used at `0.72rem` bold, below the "large text" threshold, so it needs the full ratio.
+
+### 12.1 The logo
+
+`Logo/logo.png` is the source artwork, and `npm run build:logo` produces the three served files:
+
+| Output | Size | Used for |
+|---|---|---|
+| `docs/logo.png` | 128×128 | Header mark (rendered at 34 CSS px) |
+| `docs/favicon.png` | 64×64 | Favicon |
+| `docs/apple-touch-icon.png` | 180×180, flattened on `#07050a` | iOS home screen, which ignores alpha |
+
+The source is a 561×445 canvas whose artwork only fills a 317×316 square in the middle. The build script crops to the alpha bounds, pads to a square, and downsamples with a **premultiplied-alpha** box filter — a plain average on straight alpha drags the transparent pixels' colour into the edge and leaves a dark fringe. The PNG encoder picks the best of the five row filters per scanline, which is what keeps a smooth gradient under 20 KB.
+
+The default Ember palette is drawn from this artwork: `--accent` is the logo's amber, `--accent-2` its peach highlight, `--accent-3` its deep ember. `indigo` is the blue/teal scheme the site shipped with before the logo existed, kept selectable.
+
+---
+
+## 13. Why there are no blur filters
 
 The page deliberately uses **zero** `backdrop-filter` declarations and no `filter: blur()` on animated elements. This is a performance constraint, not a style preference, and it is easy to undo by accident.
 
